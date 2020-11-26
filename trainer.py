@@ -6,7 +6,7 @@ from typing import List
 import torch
 from torch import Tensor
 import torch.nn as nn
-from torch.nn.modules.loss import _Loss as Loss
+#from torch.nn.modules.loss import _Loss as Loss
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.backends import cudnn
@@ -94,7 +94,7 @@ def main():
             pass  # This was to save the model, but for now let's not use it.
 
 
-def train(model: nn.Module, train_loader: DataLoader, criterion: Loss, optimizer: optim.Optimizer,
+def train(model: nn.Module, train_loader: DataLoader, criterion, optimizer: optim.Optimizer,
           epoch: int, device):
     r"""
     Train for one epoch.
@@ -136,11 +136,11 @@ def train(model: nn.Module, train_loader: DataLoader, criterion: Loss, optimizer
         if i % print_freq == 0:
             print(
                 f'Train: Epoch: [{epoch}][{i}/{len(train_loader)}]\t'
-                f'Time {batch_compute_time.val:.2f} ({batch_compute_time.avg:.3f})\t'
-                f'(Dl {data_load_time.val:.2f} ({data_load_time.avg:.3f}))\t'
+                f'Time {batch_compute_time.val:.2f}\t'
+                f'(Dl {data_load_time.val:.2f})\t'
                 f'Loss {losses.val:.3f} ({losses.avg:.4f})\t'
-                f'Prec@1 {100 * top1.val:.2f} ({100 * top1.avg:.3f})'
-                f'Prec@5 {100 * top5.val:.2f} ({100 * top5.avg:.3f})'
+                f'Prec@1 {100 * top1.val:.2f} ({100 * top1.avg:.3f})\t'
+                f'Prec@5 {100 * top5.val:.2f}'
             )
 
         loop_time = time.time()
@@ -154,7 +154,7 @@ def train(model: nn.Module, train_loader: DataLoader, criterion: Loss, optimizer
     )
 
 
-def validate(model: nn.Module, val_loader: DataLoader, criterion: Loss, device):
+def validate(model: nn.Module, val_loader: DataLoader, criterion, device):
     print_freq = args.print_freq
     batch_compute_time = AverageMeter()
     data_load_time = AverageMeter()
@@ -183,11 +183,11 @@ def validate(model: nn.Module, val_loader: DataLoader, criterion: Loss, device):
             if i % print_freq == 0:
                 print(
                     f'Test: [{i}/{len(val_loader)}]\t'
-                    f'Time {batch_compute_time.val:.3f} ({batch_compute_time.avg:.3f})\t'
-                    f'(Dload {data_load_time.val:.3f} ({data_load_time.avg:.3f}))\t'
-                    f'Loss {losses.val:.4f} ({losses.avg:.4f})\t'
-                    f'Prec@1 {100 * top1.val:.3f} ({100 * top1.avg:.3f})'
-                    f'Prec@5 {100 * top5.val:.3f} ({100 * top5.avg:.3f)}'
+                    f'Time {batch_compute_time.val:.2f}\t'
+                    f'(Dl {data_load_time.val:.2f})\t'
+                    f'Loss {losses.val:.3f} ({losses.avg:.4f})\t'
+                    f'Prec@1 {100 * top1.avg:.3f}\t'
+                    f'Prec@5 {100 * top5.avg:.3f}'
                 )
 
             loop_time = time.time()
