@@ -12,9 +12,10 @@ import torch.optim as optim
 from torch.backends import cudnn
 
 from datasets.cifar10 import CIFAR10
-from models.resnet import ResNet, ResNet20
+#from models.resnet import ResNet, ResNet20
 from utils.statistics_meter import AverageMeter
 from utils.argparse import PathType
+from resnet_aka import resnet20
 
 
 args: Namespace
@@ -66,7 +67,7 @@ def main():
     device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
     cudnn.benchmark = True  # PyCharm cannot understand this because it is a hack
 
-    model = ResNet20().to(device)
+    model = resnet20().to(device)
 
     dataset = CIFAR10(args.dataset_root)
     train_loader = dataset.get_train_loader(batch_size=batch_size, shuffle=True, num_workers=4, use_random_crops=True,
@@ -137,7 +138,6 @@ def train(model: nn.Module, train_loader: DataLoader, criterion, optimizer: opti
             print(
                 f'Train: Epoch: [{epoch}][{i}/{len(train_loader)}]\t'
                 f'Time {batch_compute_time.val:.2f}\t'
-                f'(Dl {data_load_time.val:.2f})\t'
                 f'Loss {losses.val:.3f} ({losses.avg:.4f})\t'
                 f'Prec@1 {100 * top1.val:.2f} ({100 * top1.avg:.3f})\t'
                 f'Prec@5 {100 * top5.val:.2f}'
@@ -184,7 +184,6 @@ def validate(model: nn.Module, val_loader: DataLoader, criterion, device):
                 print(
                     f'Test: [{i}/{len(val_loader)}]\t'
                     f'Time {batch_compute_time.val:.2f}\t'
-                    f'(Dl {data_load_time.val:.2f})\t'
                     f'Loss {losses.val:.3f} ({losses.avg:.4f})\t'
                     f'Prec@1 {100 * top1.avg:.3f}\t'
                     f'Prec@5 {100 * top5.avg:.3f}'
