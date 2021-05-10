@@ -83,6 +83,8 @@ parser.add_argument('--use-lr-warmup', action='store_true',
                     help="Use learning scheduler 2 to warmup the learning rate")
 parser.add_argument('--lr-warmup-num-epochs', type=int, default=2,
                     help='Number of epochs for the warmup, if set')
+parser.add_argument('--lr-decay', default=0.1, type=float,
+                    help='Learning rate decay factor')
 
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint')
@@ -284,8 +286,8 @@ def main():
 
     lr_scheduler1 = topt_lr_scheduler.MultiStepLR(
         optimizer,
-        milestones=[60, 120, 160],
-        gamma=0.2,
+        milestones=[100, 150],
+        gamma=args.lr_decay,
         last_epoch=args.start_epoch - 1)
     main_lr_scheduler = LRSchedulerSequence(lr_scheduler1)
     if args.use_lr_warmup:
