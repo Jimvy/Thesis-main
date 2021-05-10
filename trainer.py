@@ -17,6 +17,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import models
 import cifar
+from criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
 from utils.statistics_meter import AverageMeter
 
 
@@ -153,47 +154,6 @@ def get_folder_name():
     return '_'.join(attrs)
 
 
-class Criterion(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.criterions_ot = []
-        self.criterions_iot = []
-        self.criterion_names = []
-        self.prev_ret_map = {}
-
-    def add_criterion(self, crit, name: str, criterion_type='output_target', weight=1):
-        if name in self.criterion_names:
-            print("Warning, criterion with the same name {}".format(name))
-            id = 1
-            new_name = "{}{}".format(name, id)
-            while new_name in self.criterion_names:
-                new_name = "{}{}".format(name, id)
-                id += 1
-            name = new_name
-        self.criterion_names.append(name)
-        if criterion_type == 'output_target':
-            self.criterions_ot.append((name, crit, weight))
-        elif criterion_type == 'input_output_target':
-            self.criterions_iot.append((name, crit, weight))
-        else:
-            raise ValueError("Doesn't support another criterion type")
-
-    def forward(self, inputs, outputs, targets):
-        self.prev_ret_map = self.get_criterions(inputs, outputs, targets)
-        ret = 0
-        for name, val in self.prev_ret_map.items():
-            ret += val
-        return ret
-
-    def get_criterions(self, inputs, outputs, targets):
-        ret = {}
-        for name, crit, w in self.criterions_iot:
-            ret[name] = w * crit(inputs, outputs, targets)
-        for name, crit, w in self.criterions_ot:
-            ret[name] = w * crit(outputs, targets)
-        return ret
-
-
 def main():
     global args, best_prec1
     args = parser.parse_args()
@@ -265,20 +225,10 @@ def main():
         print("Loaded teacher")
 
     # define loss function (criterion) and optimizer
-    criterion = Criterion()
-    criterion.add_criterion(nn.CrossEntropyLoss().cuda(), "CE")
+    criterion = MultiCriterion()
+    criterion.add_criterion(CrossEntropyLossCriterion(), "CE")
     if args.distill:
-        # softmaxfunc, logsoftmaxfunc, kldivfunc = nn.Softmax(dim=1).cuda(), nn.LogSoftmax(dim=1).cuda(), nn.KLDivLoss(reduction='batchmean').cuda()
-        def crit(inputs, outputs, targets):
-            outputs_teacher = teacher(inputs).detach()
-            # ret = (args.distill_temp ** 2) * kldivfunc(
-            #     logsoftmaxfunc(outputs / args.distill_temp),
-            #     softmaxfunc(outputs_teacher / args.distill_temp)
-            # )
-            ret = (args.distill_temp ** 2) * ((-1) * F.log_softmax(outputs / args.distill_temp, dim=1) * F.softmax(outputs_teacher / args.distill_temp, dim=1)).sum(dim=1).mean()
-            return ret
-
-        criterion.add_criterion(crit, "HKD", criterion_type='input_output_target', weight=args.distill_weight)
+        criterion.add_criterion(HKDCriterion(teacher, args.distill_temp), "HKD", weight=args.distill_weight)
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
