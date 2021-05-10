@@ -12,12 +12,12 @@ import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
 from torch.optim import lr_scheduler as topt_lr_scheduler
-from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 from torch.utils.tensorboard import SummaryWriter
 
 import models
 import cifar
 from criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
+from scheduling import LRSchedulerSequence
 from utils.statistics_meter import AverageMeter
 
 
@@ -108,22 +108,6 @@ best_prec1 = 0
 ROOT_LOG_FOLDER = 'runs'
 
 
-class LRSchedulerSequence(LRScheduler):
-    def __init__(self, *args):
-        self.schedulers = []
-        for scheduler in args:
-            if isinstance(scheduler, LRScheduler):
-                self.schedulers.append(scheduler)
-
-    def step(self, *args, **kwargs):
-        for scheduler in self.schedulers:
-            scheduler.step(*args, **kwargs)
-
-    def add_scheduler(self, *args):
-        for scheduler in args:
-            self.schedulers.append(scheduler)
-
-
 def get_folder_name():
     global args
     attrs = ['{}'.format(datetime.now().strftime('%b%d_%H-%M-%S'))]
@@ -211,6 +195,11 @@ def main():
         else:
             print(f"No checkpoint found at '{args.resume}'")
 
+    # define loss function (criterion)
+    criterion = MultiCriterion()
+    criterion.add_criterion(CrossEntropyLossCriterion(), "CE")
+
+    # Handling Hinton knowledge distillation
     teacher = None
     if args.distill:
         teacher = models.__dict__[args.teacher_arch](
@@ -223,13 +212,9 @@ def main():
         chkpt = torch.load(args.teacher_path)
         teacher.load_state_dict(chkpt['state_dict'])
         print("Loaded teacher")
-
-    # define loss function (criterion) and optimizer
-    criterion = MultiCriterion()
-    criterion.add_criterion(CrossEntropyLossCriterion(), "CE")
-    if args.distill:
         criterion.add_criterion(HKDCriterion(teacher, args.distill_temp), "HKD", weight=args.distill_weight)
 
+    # Define optimizer: mini-batch SGD with momentum
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
