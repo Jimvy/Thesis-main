@@ -27,6 +27,7 @@ def _weights_init(m):
 class VGG(nn.Module):
     def __init__(self, vgg_name, num_classes=10, **kwargs):
         super(VGG, self).__init__()
+        self._name = vgg_name
         self.features = self._make_layers(cfg[vgg_name])
         self.classifier = nn.Linear(512, num_classes)
         self.apply(_weights_init)
@@ -50,6 +51,9 @@ class VGG(nn.Module):
                 in_channels = x
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         return nn.Sequential(*layers)
+
+    def get_model_name(self):
+        return self._name
 
 
 def vgg11bn(**kwargs):

@@ -2,7 +2,6 @@ import argparse
 from datetime import datetime
 import os
 import shutil
-import socket
 import time
 
 import torch
@@ -100,7 +99,8 @@ parser.add_argument('--log-freq', '--lf', default=4, type=int, metavar='N',
 
 parser.add_argument('--comment', type=str, help='Commentary on the run')
 
-FOLDER_INCLUDED_ARGS = [('ds', 'dataset'), ('bs', 'batch_size'), ('lr', 'lr'), ('wd', 'weight_decay')]
+FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
+FOLDER_POSSIBLY_INCLUDED_ARGS = [('lr_warmup', 'use_lr_warmup')]
 FOLDER_IGNORED_ARGS = ['arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path']
 
 best_prec1 = 0
@@ -108,52 +108,55 @@ best_prec1 = 0
 ROOT_LOG_FOLDER = 'runs'
 
 
-def get_folder_name():
+def get_folder_name(main_model, teacher):
     global args
-    attrs = ['{}'.format(datetime.now().strftime('%b%d_%H-%M-%S'))]
-    attrs.append('{}'.format(socket.gethostname()))
-    attrs.append('gpu{}'.format(os.environ.get('CUDA_VISIBLE_DEVICES', 'all')))
-    attrs.append(args.arch)
     arg_keys = sorted(vars(args).keys())
+    attrs = []
+    attrs.append(args.dataset)
+    arg_keys.remove('dataset')
+    attrs.append(main_model.get_model_name())
+    arg_keys.remove('arch')
+    arg_keys.remove('base_width')
+    if args.distill:
+        attrs.append("distill")
+        attrs.append(teacher.get_model_name())
+        attrs.append(f"temp={args.distill_temp}")
+        attrs.append(f"weight={args.distill_weight}")
+        arg_keys.remove("distill")
+        arg_keys.remove("distill_temp")
+        arg_keys.remove("distill_weight")
+        arg_keys.remove("teacher_arch")
+        arg_keys.remove("teacher_base_width")
     for (arg_key_print, arg_key_name) in FOLDER_INCLUDED_ARGS:
         attrs.append(f'{arg_key_print}={getattr(args, arg_key_name)}')
         arg_keys.remove(arg_key_name)
+    if args.use_lr_warmup:
+        attrs.append(f'use_warmup_num_epochs={args.lr_warmup_num_epochs}')
+    arg_keys.remove('use_lr_warmup')
+    arg_keys.remove('lr_warmup_num_epochs')
+    if args.use_test_set_as_valid:
+        attrs.append(f"validation=test_set")
+    arg_keys.remove('use_test_set_as_valid')
+    for arg_key in FOLDER_IGNORED_ARGS:
+        if arg_key in arg_keys:
+            arg_keys.remove(arg_key)
     for arg_key in arg_keys:
         arg_val = getattr(args, arg_key)
-        if not arg_val:
-            pass  # None
-        if arg_key in FOLDER_IGNORED_ARGS:
-            pass
-        elif arg_key == 'comment':
-            pass
-        elif arg_key == 'lr_warmup_num_epochs' and not args.use_lr_warmup:
-            pass
-        elif isinstance(arg_val, bool):
-            if arg_val:
-                attrs.append(arg_key)
-        else:
-            attrs.append('{}={}'.format(arg_key, arg_val))
+        if arg_val is not None and arg_val is not False and arg_key != 'comment':
+            if arg_val == True:
+                attrs.append(f'{arg_key}')
+            else:
+                attrs.append(f'{arg_key}={arg_val}')
+            arg_keys.remove(arg_key)
+    attrs.append('{}'.format(datetime.now().strftime('%b%d_%H-%M-%S')))
+    attrs.append('gpu{}'.format(os.environ.get('CUDA_VISIBLE_DEVICES', 'all')))
     if args.comment:
         attrs.append(args.comment)
     return '_'.join(attrs)
 
 
-def main():
-    global args, best_prec1
-    args = parser.parse_args()
-
-    log_subfolder = get_folder_name()
-    checkpoint_filename = os.path.join(ROOT_LOG_FOLDER, log_subfolder, 'model.th')
-    args.checkpoint_filename = checkpoint_filename
-
-    cudnn.benchmark = True
-
-    dataset = cifar.__dict__[args.dataset]('~/datasets', pin_memory=True)
-
-    writer = SummaryWriter(log_dir=os.path.join(
-        ROOT_LOG_FOLDER, log_subfolder
-    ))
-
+def get_writer(log_subfolder):
+    writer = SummaryWriter(log_subfolder)
     layout = {
         'Prec@1': {
             'prec@1': ['Multiline', ['Prec1/train', 'Prec1/valid']],
@@ -164,6 +167,16 @@ def main():
         }
     }
     writer.add_custom_scalars(layout)
+    return writer
+
+
+def main():
+    global args, best_prec1
+    args = parser.parse_args()
+
+    cudnn.benchmark = True
+
+    dataset = cifar.__dict__[args.dataset]('~/datasets', pin_memory=True)
 
     if args.use_test_set_as_valid:
         train_loader = dataset.get_train_loader(
@@ -234,6 +247,12 @@ def main():
             milestones=[args.lr_warmup_num_epochs] # First two epochs
         )
         main_lr_scheduler.add_scheduler(lr_scheduler2)
+
+    # Logging-related stuff
+    log_subfolder = os.path.join(ROOT_LOG_FOLDER, get_folder_name(model, teacher))
+    checkpoint_filename = os.path.join(log_subfolder, 'model.th')
+    args.checkpoint_filename = checkpoint_filename
+    writer = get_writer(log_subfolder)
 
     if args.print_freq < 1:
         args.print_freq = 1

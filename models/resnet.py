@@ -99,12 +99,20 @@ class BasicBlock(nn.Module):
         out = F.relu(out)
         return out
 
+    def depth():
+        return 2
+
 
 class BottleNeck(nn.Module):
     expansion = 4
 
     def __init__(self, in_planes, planes, stride=1, option='B'):
         super(BottleNeck, self).__init__()
+        self._in_planes = in_planes
+        self._planes = planes
+        self._stride = stride
+        self._option = option
+
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, stride=1,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
@@ -138,12 +146,28 @@ class BottleNeck(nn.Module):
         out = F.relu(out)
         return out
 
+    def depth():
+        return 3
+
+    """
+    def __str__(self):
+        stride_s = f"/{self._stride}" if self._stride != 1 else ""
+        if self._in_planes == self._planes:
+            return f"BottleNeck-{self._option}-{self._in_planes}{stride_s}"
+        else:
+            return f"BottleNeck-{self._option}-{self._in_planes}/{self._planes}{stride_s}"
+    """
+
 
 class ResNet(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10, base_width=16):
         super(ResNet, self).__init__()
-        self.in_planes = base_width
+        self._base_width = base_width
+        self._block = block
+        self._num_classes = num_classes
+        self._num_blocks = num_blocks
 
+        self.in_planes = base_width
         self.conv1 = nn.Conv2d(3, self.in_planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(self.in_planes)
         self.layer1 = self._make_layer(block, base_width*1, num_blocks[0], stride=1)
@@ -180,6 +204,10 @@ class ResNet(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
+
+    def get_model_name(self):
+        num_layers = sum(self._num_blocks) * self._block.depth() + 2
+        return f"ResNet{num_layers}-{self._base_width}"
 
 
 def resnet20(**kwargs):
