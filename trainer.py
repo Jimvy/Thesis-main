@@ -203,8 +203,9 @@ def main():
             print("Loading checkpoint '{}'".format(args.resume))
             chkpt = torch.load(args.resume)
             model.load_state_dict(chkpt['state_dict'])
-            best_prec1 = chkpt['best_prec1']
-            print("Loaded checkpoint")
+            best_prec1 = chkpt['best_prec1'] if 'best_prec1' in chkpt else chkpt['best_prec1_last20']
+            best_prec_last_epoch = chkpt['epoch'] if 'epoch' in chkpt else 200
+            print(f"Loaded checkpoint, epochs up to {best_prec_last_epoch}")
         else:
             print(f"No checkpoint found at '{args.resume}'")
 
@@ -250,8 +251,8 @@ def main():
 
     # Logging-related stuff
     log_subfolder = os.path.join(ROOT_LOG_FOLDER, get_folder_name(model, teacher))
-    checkpoint_filename = os.path.join(log_subfolder, 'model.th')
-    args.checkpoint_filename = checkpoint_filename
+    checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
+    args.checkpoint_filename_fmt = checkpoint_filename_fmt
     writer = get_writer(log_subfolder)
 
     if args.print_freq < 1:
@@ -277,13 +278,13 @@ def main():
     writer.close()
 
 
-def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, writer, checkpoint_filename=None):
+def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, writer):
 
     global args
 
-    if not checkpoint_filename:
-        checkpoint_filename=args.checkpoint_filename
+    checkpoint_filename_fmt=args.checkpoint_filename_fmt
     best_prec1 = 0
+    best_last20_prec1 = 0
 
     for epoch in range(args.start_epoch, args.epochs):
 
@@ -303,7 +304,19 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
             torch.save({
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
-            }, checkpoint_filename)
+            }, checkpoint_filename_fmt.format(""))
+
+        if epoch % 20 == 0: # Reset, don't need to save it: the next one should _at least_ happen once, hopefully
+            best_last20_prec1 = 0
+        # remember best prec@1 of the last 20 epochs, and save it
+        if prec1 > best_last20_prec1:
+            best_last20_prec1 = prec1
+            epoch_rounded = ((epoch // 20)+1) * 20
+            torch.save({
+                'state_dict': model.state_dict(),
+                'best_prec1': best_last20_prec1,
+                'epoch': epoch,
+            }, checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
 
 
 def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
