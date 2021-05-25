@@ -265,7 +265,7 @@ def main():
         criterion.half()
 
     if args.evaluate:
-        validate(val_loader, model, criterion, 42, writer)
+        validate(val_loader, model, criterion, 42, writer=None)
         return
 
     # TODO: add hparams to TensorBoard
@@ -440,10 +440,11 @@ def validate(val_loader, model, criterion, epoch, writer):
             batch_time.update(time.time() - end)
             end = time.time()
 
-        writer.add_scalar("Prec1/valid", top1.avg, epoch)
-        writer.add_scalar("Loss/valid", losses.avg, epoch)
-        for loss_name, loss_meter in losses_components.items():
-            writer.add_scalar("Loss/valid/{}".format(loss_name), loss_meter.avg, epoch)
+        if writer:
+            writer.add_scalar("Prec1/valid", top1.avg, epoch)
+            writer.add_scalar("Loss/valid", losses.avg, epoch)
+            for loss_name, loss_meter in losses_components.items():
+                writer.add_scalar("Loss/valid/{}".format(loss_name), loss_meter.avg, epoch)
 
     print(f"Valid: Prec1 {top1.avg:.3f} \t (Time: {batch_time.avg:.3f}, Loss: {losses.avg:.4f})")
 

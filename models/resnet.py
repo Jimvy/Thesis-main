@@ -44,7 +44,7 @@ import torch.nn.init as init
 __all__ = [
     'ResNet',
     'resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110', 'resnet1202',
-    'resnet18', 'resnet50', 'resnet101',
+    'resnet18', 'resnet34', 'resnet50', 'resnet101',
 ]
 
 
