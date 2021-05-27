@@ -92,20 +92,20 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 
-parser.add_argument('--print-freq', '-p', default=2, type=int,
+parser.add_argument('--print-freq', '-p', default=1, type=int,
                     metavar='N', help='print frequency (per epoch)')
 parser.add_argument('--log-freq', '--lf', default=4, type=int, metavar='N',
                     help="TensorBoard log frequency during training (per epoch)")
+parser.add_argument('--log-dir', '--ld', default='runs', type=str,
+                    help="Log folder for TensorBoard")
 
 parser.add_argument('--comment', type=str, help='Commentary on the run')
 
 FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
 FOLDER_POSSIBLY_INCLUDED_ARGS = [('lr_warmup', 'use_lr_warmup')]
-FOLDER_IGNORED_ARGS = ['arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path']
+FOLDER_IGNORED_ARGS = ['arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path', 'log_dir']
 
 best_prec1 = 0
-
-ROOT_LOG_FOLDER = 'runs'
 
 
 def get_folder_name(main_model, teacher):
@@ -263,7 +263,7 @@ def main():
         return
 
     # Logging-related stuff
-    log_subfolder = os.path.join(ROOT_LOG_FOLDER, get_folder_name(model, teacher))
+    log_subfolder = os.path.join(args.log_dir, get_folder_name(model, teacher))
     checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
     args.checkpoint_filename_fmt = checkpoint_filename_fmt
     writer = get_writer(log_subfolder)
