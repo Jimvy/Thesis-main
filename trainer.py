@@ -49,7 +49,7 @@ parser.add_argument('--half', dest='half', action='store_true',
 
 parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                     help='number of data loading workers')
-parser.add_argument('-b', '--batch-size', default=128, type=int,
+parser.add_argument('-b', '--batch-size', '--bs', default=128, type=int,
                     metavar='N', help='mini-batch size')
 parser.add_argument('--use-color-jitter', '--cj', action='store_true',
                     help='Use color jitter of 0.1 in train loader')
@@ -249,12 +249,6 @@ def main():
         )
         main_lr_scheduler.add_scheduler(lr_scheduler2)
 
-    # Logging-related stuff
-    log_subfolder = os.path.join(ROOT_LOG_FOLDER, get_folder_name(model, teacher))
-    checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
-    args.checkpoint_filename_fmt = checkpoint_filename_fmt
-    writer = get_writer(log_subfolder)
-
     if args.print_freq < 1:
         args.print_freq = 1
     if args.log_freq < 1:
@@ -267,6 +261,12 @@ def main():
     if args.evaluate:
         validate(val_loader, model, criterion, 42, writer=None)
         return
+
+    # Logging-related stuff
+    log_subfolder = os.path.join(ROOT_LOG_FOLDER, get_folder_name(model, teacher))
+    checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
+    args.checkpoint_filename_fmt = checkpoint_filename_fmt
+    writer = get_writer(log_subfolder)
 
     # TODO: add hparams to TensorBoard
 

@@ -63,6 +63,11 @@ def vgg11bn(**kwargs):
 def vgg16bn(*kwargs):
     return VGG('VGG16', **kwargs)
 
+def vgg19bn(*kwargs):
+    return VGG('VGG19', **kwargs)
+
 
 vgg11 = vgg11bn
 vgg16 = vgg16bn
+vgg19 = vgg19bn
+
