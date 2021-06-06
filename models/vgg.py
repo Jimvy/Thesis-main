@@ -1,3 +1,8 @@
+"""
+Credits: Park, Kim, Lu, Cho, "Relational knowledge distillation",
+at https://github.com/lenscloth/RKD/blob/classification/model/backbone/classification/vgg.py
+"""
+
 import torch.nn as nn
 import torch.nn.init as init
 
@@ -60,10 +65,10 @@ def vgg11bn(**kwargs):
     return VGG('VGG11', **kwargs)
 
 
-def vgg16bn(*kwargs):
+def vgg16bn(**kwargs):
     return VGG('VGG16', **kwargs)
 
-def vgg19bn(*kwargs):
+def vgg19bn(**kwargs):
     return VGG('VGG19', **kwargs)
 
 
