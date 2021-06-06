@@ -15,6 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 import models
 import cifar
 from criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
+from evaluate import validate
 from parsing import get_parser, parse_args, args
 from scheduling import LRSchedulerSequence
 from utils.acc import accuracy
@@ -22,9 +23,8 @@ from utils.statistics_meter import AverageMeter
 
 
 
-FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
-FOLDER_POSSIBLY_INCLUDED_ARGS = [('lr_warmup', 'use_lr_warmup')]
-FOLDER_IGNORED_ARGS = ['arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path', 'log_dir']
+_FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
+_FOLDER_IGNORED_ARGS = ['arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path', 'log_dir']
 
 best_prec1 = 0
 
@@ -47,7 +47,7 @@ def get_folder_name(args, main_model, teacher):
         arg_keys.remove("distill_weight")
         arg_keys.remove("teacher_arch")
         arg_keys.remove("teacher_base_width")
-    for (arg_key_print, arg_key_name) in FOLDER_INCLUDED_ARGS:
+    for (arg_key_print, arg_key_name) in _FOLDER_INCLUDED_ARGS:
         attrs.append(f'{arg_key_print}={getattr(args, arg_key_name)}')
         arg_keys.remove(arg_key_name)
     if args.use_lr_warmup:
@@ -57,7 +57,7 @@ def get_folder_name(args, main_model, teacher):
     if args.use_test_set_as_valid:
         attrs.append(f"validation=test_set")
     arg_keys.remove('use_test_set_as_valid')
-    for arg_key in FOLDER_IGNORED_ARGS:
+    for arg_key in _FOLDER_IGNORED_ARGS:
         if arg_key in arg_keys:
             arg_keys.remove(arg_key)
     for arg_key in arg_keys:
@@ -367,59 +367,6 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
     writer.add_scalar("Loss/train", losses.avg, epoch+1)
     for loss_name, loss_meter in losses_components.items():
         writer.add_scalar("Loss/train/{}".format(loss_name), loss_meter.avg, epoch+1)
-
-
-def validate(val_loader, model, criterion, epoch, writer):
-    """
-    Run evaluation
-    """
-    batch_time = AverageMeter()
-    losses = AverageMeter()
-    losses_components = {}
-    for loss_name in criterion.criterion_names:
-        losses_components[loss_name] = AverageMeter()
-    top1 = AverageMeter()
-
-    # switch to evaluate mode
-    model.eval()
-
-    end = time.time()
-    with torch.no_grad():
-        for i, (inputs, targets) in enumerate(val_loader):
-            targets = targets.cuda()
-            inputs = inputs.cuda()
-
-            if args('half'):
-                inputs = inputs.half()
-
-            # compute output
-            outputs = model(inputs)
-            loss = criterion(inputs, outputs, targets)
-            loss_map = criterion.prev_ret_map
-
-            outputs = outputs.float()
-            loss = loss.float()
-
-            # measure accuracy and record loss
-            prec1 = accuracy(outputs.data, targets)[0]
-            losses.update(loss.item(), inputs.size(0))
-            for loss_name, loss_val in loss_map.items():
-                losses_components[loss_name].update(loss_val)
-            top1.update(prec1.item(), inputs.size(0))
-
-            # measure elapsed time
-            batch_time.update(time.time() - end)
-            end = time.time()
-
-        if writer:
-            writer.add_scalar("Prec1/valid", top1.avg, epoch)
-            writer.add_scalar("Loss/valid", losses.avg, epoch)
-            for loss_name, loss_meter in losses_components.items():
-                writer.add_scalar("Loss/valid/{}".format(loss_name), loss_meter.avg, epoch)
-
-    print(f"Valid: Prec1 {top1.avg:.3f} \t (Time: {batch_time.avg:.3f}, Loss: {losses.avg:.4f})")
-
-    return top1.avg
 
 
 if __name__ == '__main__':
