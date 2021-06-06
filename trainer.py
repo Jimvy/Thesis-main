@@ -1,4 +1,3 @@
-import argparse
 from datetime import datetime
 import os
 import shutil
@@ -16,90 +15,11 @@ from torch.utils.tensorboard import SummaryWriter
 import models
 import cifar
 from criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
+from parsing import get_parser, parse_args, args
 from scheduling import LRSchedulerSequence
 from utils.statistics_meter import AverageMeter
 
 
-model_names = sorted(
-    name for name in models.__dict__
-    if name.islower() and not name.startswith("__")
-    and (name.startswith("resnet") or name.startswith("vgg"))
-    and callable(models.__dict__[name])
-)
-
-
-parser = argparse.ArgumentParser(
-    description='Proper ResNets for CIFAR10 in pytorch',
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter
-)
-parser.add_argument('--dataset', '--ds', default='CIFAR10',
-                    choices=["CIFAR10", "CIFAR100", "CIFAR100Coarse"],
-                    help="Dataset to use")
-parser.add_argument('--use-test-set-as-valid', action='store_true',
-                    help='Use test set as validation set, and the full train set as train set, instead of the 5k/45k split')
-
-parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
-                    choices=model_names,
-                    help='model architecture: ' + ' | '.join(model_names) +
-                    ' (default: resnet32)')
-parser.add_argument('--base-width', metavar='WIDTH', default=16, type=int,
-                    help='width of the base layer')
-parser.add_argument('--half', dest='half', action='store_true',
-                    help='use half-precision (16-bit)')
-
-parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
-                    help='number of data loading workers')
-parser.add_argument('-b', '--batch-size', '--bs', default=128, type=int,
-                    metavar='N', help='mini-batch size')
-parser.add_argument('--use-color-jitter', '--cj', action='store_true',
-                    help='Use color jitter of 0.1 in train loader')
-
-parser.add_argument('--epochs', default=200, type=int, metavar='N',
-                    help='number of total epochs to run')
-parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                    help='manual epoch number (useful on restarts)')
-
-parser.add_argument('--distill', action='store_true',
-                    help='Specify distillation parameters')
-parser.add_argument('--distill-weight', type=float,
-                    help='Distillation weight')
-parser.add_argument('--distill-temp', type=float,
-                    help='Distillation temperature')
-parser.add_argument('--teacher-arch', type=str,
-                    help='Teacher architecture')
-parser.add_argument('--teacher-base-width', type=int,
-                    help='Teacher architecture base width')
-parser.add_argument('--teacher-path', type=str, metavar='PATH',
-                    help='Teacher model checkpoint path')
-
-parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
-                    metavar='LR', help='initial learning rate'
-                    '\nNote that for ResNet-112/1202 it is 1e-2')
-parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
-                    help='momentum')
-parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
-                    metavar='W', help='weight decay')
-parser.add_argument('--use-lr-warmup', action='store_true',
-                    help="Use learning scheduler 2 to warmup the learning rate")
-parser.add_argument('--lr-warmup-num-epochs', type=int, default=2,
-                    help='Number of epochs for the warmup, if set')
-parser.add_argument('--lr-decay', default=0.1, type=float,
-                    help='Learning rate decay factor')
-
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint')
-
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                    help='evaluate model on validation set')
-
-parser.add_argument('--print-freq', '-p', default=1, type=int,
-                    metavar='N', help='print frequency (per epoch)')
-parser.add_argument('--log-freq', '--lf', default=4, type=int, metavar='N',
-                    help="TensorBoard log frequency during training (per epoch)")
-parser.add_argument('--log-dir', '--ld', default='runs', type=str,
-                    help="Log folder for TensorBoard")
-
-parser.add_argument('--comment', type=str, help='Commentary on the run')
 
 FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
 FOLDER_POSSIBLY_INCLUDED_ARGS = [('lr_warmup', 'use_lr_warmup')]
@@ -108,8 +28,7 @@ FOLDER_IGNORED_ARGS = ['arch', 'workers', 'resume', 'log_freq', 'print_freq', 'm
 best_prec1 = 0
 
 
-def get_folder_name(main_model, teacher):
-    global args
+def get_folder_name(args, main_model, teacher):
     arg_keys = sorted(vars(args).keys())
     attrs = []
     attrs.append(args.dataset)
@@ -170,9 +89,62 @@ def get_writer(log_subfolder):
     return writer
 
 
+def get_trainer_parser():
+    parser = get_parser('Training script for CIFAR datasets')
+
+    parser.add_argument('--epochs', default=200, type=int, metavar='N',
+                        help='number of total epochs to run')
+    parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
+                        help='manual epoch number (useful on restarts)')
+
+    parser.add_argument('--use-color-jitter', '--cj', action='store_true',
+                        help='Use color jitter of 0.1 in train loader')
+
+    parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
+                        metavar='LR', help='initial learning rate'
+                        '\nNote that for ResNet-112/1202 it is 1e-2')
+    parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
+                        help='momentum')
+    parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
+                        metavar='W', help='weight decay')
+    parser.add_argument('--use-lr-warmup', action='store_true',
+                        help="Use learning scheduler 2 to warmup the learning rate")
+    parser.add_argument('--lr-warmup-num-epochs', type=int, default=2,
+                        help='Number of epochs for the warmup, if set')
+    parser.add_argument('--lr-decay', default=0.1, type=float,
+                        help='Learning rate decay factor')
+
+    parser.add_argument('--resume', default='', type=str, metavar='PATH',
+                        help='path to latest checkpoint')
+
+    parser.add_argument('--distill', action='store_true',
+                        help='Specify distillation parameters')
+    parser.add_argument('--distill-weight', type=float,
+                        help='Distillation weight')
+    parser.add_argument('--distill-temp', type=float,
+                        help='Distillation temperature')
+    parser.add_argument('--teacher-arch', type=str,
+                        help='Teacher architecture')
+    parser.add_argument('--teacher-base-width', type=int,
+                        help='Teacher architecture base width')
+    parser.add_argument('--teacher-path', type=str, metavar='PATH',
+                        help='Teacher model checkpoint path')
+
+    parser.add_argument('--print-freq', '-p', default=1, type=int,
+                        metavar='N', help='print frequency (per epoch)')
+    parser.add_argument('--log-freq', '--lf', default=4, type=int, metavar='N',
+                        help="TensorBoard log frequency during training (per epoch)")
+
+    # TODO: delete
+    parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
+                        help='evaluate model on validation set')
+
+    return parser
+
 def main():
-    global args, best_prec1
-    args = parser.parse_args()
+    global best_prec1
+    parser = get_trainer_parser()
+    args = parse_args(parser)
 
     cudnn.benchmark = True
 
@@ -205,7 +177,7 @@ def main():
             model.load_state_dict(chkpt['state_dict'])
             best_prec1 = chkpt['best_prec1'] if 'best_prec1' in chkpt else chkpt['best_prec1_last20']
             best_prec_last_epoch = chkpt['epoch'] if 'epoch' in chkpt else 200
-            print(f"Loaded checkpoint, epochs up to {best_prec_last_epoch}")
+            print(f"Loaded checkpoint, epochs up to {best_prec_last_epoch}, accuracy {best_prec1}")
         else:
             print(f"No checkpoint found at '{args.resume}'")
 
@@ -263,7 +235,7 @@ def main():
         return
 
     # Logging-related stuff
-    log_subfolder = os.path.join(args.log_dir, get_folder_name(model, teacher))
+    log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher))
     checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
     args.checkpoint_filename_fmt = checkpoint_filename_fmt
     writer = get_writer(log_subfolder)
@@ -280,13 +252,11 @@ def main():
 
 def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, writer):
 
-    global args
-
-    checkpoint_filename_fmt=args.checkpoint_filename_fmt
+    checkpoint_filename_fmt=args('checkpoint_filename_fmt')
     best_prec1 = 0
     best_last20_prec1 = 0
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args('start_epoch'), args('epochs')):
 
         # train for one epoch
         writer.add_scalar("base_learning_rate", optimizer.param_groups[0]['lr'], epoch)
@@ -314,7 +284,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
             epoch_rounded = ((epoch // 20)+1) * 20
             torch.save({
                 'state_dict': model.state_dict(),
-                'best_prec1': best_last20_prec1,
+                'best_prec1_last20': best_last20_prec1,
                 'epoch': epoch,
             }, checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
 
@@ -334,8 +304,8 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
     # switch to train mode
     model.train()
 
-    print_period = (len(train_loader) // args.print_freq) + 1
-    log_period = (len(train_loader) // args.log_freq) + 1
+    print_period = (len(train_loader) // args('print_freq')) + 1
+    log_period = (len(train_loader) // args('log_freq')) + 1
 
     end = time.time()
     for i, (inputs, targets) in enumerate(train_loader):
@@ -345,7 +315,7 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
 
         input_var = inputs.cuda()
         targets = targets.cuda()
-        if args.half:
+        if args('half'):
             input_var = input_var.half()
 
         # compute output
@@ -418,7 +388,7 @@ def validate(val_loader, model, criterion, epoch, writer):
             targets = targets.cuda()
             inputs = inputs.cuda()
 
-            if args.half:
+            if args('half'):
                 inputs = inputs.half()
 
             # compute output
