@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import shutil
+import sys
 import time
 
 import torch
@@ -26,7 +27,7 @@ from utils.statistics_meter import AverageMeter
 _FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
 _FOLDER_IGNORED_ARGS = ['arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path', 'log_dir']
 
-best_prec1 = 0
+_checkpoint_filename_fmt = None
 
 
 def get_folder_name(args, main_model, teacher):
@@ -138,14 +139,18 @@ def get_trainer_parser():
 
     # TODO: delete
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                        help='evaluate model on validation set')
+                        help='DEPRECATED: evaluate model on validation set')
 
     return parser
 
 def main():
-    global best_prec1
+    global _checkpoint_filename_fmt
     parser = get_trainer_parser()
     args = parse_args(parser)
+
+    if args.evaluate:
+        print("Sorry, this script can only be used to train a network; you probably want evaluate.py")
+        sys.exit(-1)
 
     cudnn.benchmark = True
 
@@ -231,14 +236,9 @@ def main():
         model.half()
         criterion.half()
 
-    if args.evaluate:
-        validate(val_loader, model, criterion, 42, writer=None)
-        return
-
     # Logging-related stuff
     log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher))
-    checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
-    args.checkpoint_filename_fmt = checkpoint_filename_fmt
+    _checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
     writer = get_writer(log_subfolder)
 
     # TODO: add hparams to TensorBoard
@@ -253,7 +253,6 @@ def main():
 
 def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, writer):
 
-    checkpoint_filename_fmt=args('checkpoint_filename_fmt')
     best_prec1 = 0
     best_last20_prec1 = 0
 
@@ -275,7 +274,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
             torch.save({
                 'state_dict': model.state_dict(),
                 'best_prec1': best_prec1,
-            }, checkpoint_filename_fmt.format(""))
+            }, _checkpoint_filename_fmt.format(""))
 
         if epoch % 20 == 0: # Reset, don't need to save it: the next one should _at least_ happen once, hopefully
             best_last20_prec1 = 0
@@ -287,7 +286,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
                 'state_dict': model.state_dict(),
                 'best_prec1_last20': best_last20_prec1,
                 'epoch': epoch,
-            }, checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
+            }, _checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
 
 
 def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
