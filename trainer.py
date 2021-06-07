@@ -237,7 +237,9 @@ def main():
         criterion.half()
 
     # Logging-related stuff
-    log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher))
+    log_subfolder = get_folder_name(args, model, teacher)
+    print(f"Logging into folder {log_subfolder}")
+    log_subfolder = os.path.join(args.log_dir, log_subfolder)
     _checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
     writer = get_writer(log_subfolder)
 
@@ -355,12 +357,12 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
             for loss_name, loss_meter in losses_components.items():
                 writer.add_scalar("Loss/train/{}".format(loss_name), loss_meter.avg, epoch + i/len(train_loader))
 
-    print('Epoch: [{0}][done]\t'
+    print('Epoch: [{0}][done/{1}]\t'
           'Time {batch_time.val:.3f}\t'
           'DL {data_time.val:.3f}\t'
           'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
           'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-              epoch, batch_time=batch_time,
+              epoch, len(train_loader), batch_time=batch_time,
               data_time=data_time, loss=losses, top1=top1))
     writer.add_scalar("Prec1/train", top1.avg, epoch+1)
     writer.add_scalar("Loss/train", losses.avg, epoch+1)
