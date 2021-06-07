@@ -99,9 +99,6 @@ def get_trainer_parser():
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
 
-    parser.add_argument('--use-color-jitter', '--cj', action='store_true',
-                        help='Use color jitter of 0.1 in train loader')
-
     parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
                         metavar='LR', help='initial learning rate'
                         '\nNote that for ResNet-112/1202 it is 1e-2')

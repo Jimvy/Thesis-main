@@ -3,6 +3,8 @@ Evaluation-related functions.
 
 
 """
+import os
+import sys
 import time
 
 import torch
@@ -31,6 +33,7 @@ def get_evaluate_parser():
     parser.add_argument('--loss', nargs='*', default='CE',
                         choices=['CE', 'HKD'],
                         help='Loss(es) to consider in the evaluation')
+    return parser
 
 def main():
     parser = get_evaluate_parser()

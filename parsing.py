@@ -28,6 +28,8 @@ def get_parser(description='Proper ResNets for CIFAR10 in pytorch'):
                         help="Dataset to use")
     parser.add_argument('--use-test-set-as-valid', action='store_true',
                         help='Use test set as validation set, and the full train set as train set, instead of the 5k/45k split')
+    parser.add_argument('--use-color-jitter', '--cj', action='store_true',
+                        help='Use color jitter of 0.1 in train loader')
 
     parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
                         choices=_model_names,
