@@ -166,9 +166,21 @@ def main():
     validate(val_loader, model, criterion, 42)
 
     # TODO: add precision-recall curve
-    # if hasattr(writer, "flush"):
-    #     writer.flush()
-    # writer.close()
+    #if hasattr(writer, "flush"):
+    #    writer.flush()
+    #writer.close()
+
+
+def evaluate(val_loader, model):
+    model.eval()
+    with torch.no_grad():
+        #
+        outputs_correctclass_correct = []
+        for i, (inputs, targets) in enumerate(val_loader):
+            targets = targets.cuda()
+            inputs = inputs.cuda()
+            raw_outputs = model(inputs)
+            softmax_outputs = F.softmax(raw_outputs, dim=1)
 
 
 def validate(val_loader, model, criterion, epoch, writer=None):
