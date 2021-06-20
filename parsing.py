@@ -21,7 +21,8 @@ _model_names = sorted(
 def get_parser(description='Proper ResNets for CIFAR10 in pytorch'):
     parser = argparse.ArgumentParser(
         description=description,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        conflict_handler='resolve',
     )
     parser.add_argument('--dataset', '--ds', default='CIFAR10',
                         choices=["CIFAR10", "CIFAR100", "CIFAR100Coarse"],
@@ -30,6 +31,10 @@ def get_parser(description='Proper ResNets for CIFAR10 in pytorch'):
                         help='Use test set as validation set, and the full train set as train set, instead of the 5k/45k split')
     parser.add_argument('--use-color-jitter', '--cj', action='store_true',
                         help='Use color jitter of 0.1 in train loader')
+    parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
+                        help='number of data loading workers')
+    parser.add_argument('-b', '--batch-size', '--bs', default=128, type=int,
+                        metavar='N', help='mini-batch size')
 
     parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
                         choices=_model_names,
@@ -40,13 +45,18 @@ def get_parser(description='Proper ResNets for CIFAR10 in pytorch'):
     parser.add_argument('--half', dest='half', action='store_true',
                         help='use half-precision (16-bit)')
 
-    parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
-                        help='number of data loading workers')
-    parser.add_argument('-b', '--batch-size', '--bs', default=128, type=int,
-                        metavar='N', help='mini-batch size')
-
-    parser.add_argument('--log-dir', '--ld', default='runs', type=str,
-                        help="Log folder for TensorBoard")
+    parser.add_argument('--distill', action='store_true',
+                        help='Specify distillation parameters')
+    parser.add_argument('--distill-weight', type=float,
+                        help='Distillation weight')
+    parser.add_argument('--distill-temp', type=float,
+                        help='Distillation temperature')
+    parser.add_argument('--teacher-arch', type=str,
+                        help='Teacher architecture')
+    parser.add_argument('--teacher-base-width', type=int,
+                        help='Teacher architecture base width')
+    parser.add_argument('--teacher-path', type=str, metavar='PATH',
+                        help='Teacher model checkpoint path')
 
     parser.add_argument('--comment', type=str, help='Commentary on the run')
 

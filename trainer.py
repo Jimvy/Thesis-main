@@ -116,23 +116,15 @@ def get_trainer_parser():
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint')
 
-    parser.add_argument('--distill', action='store_true',
-                        help='Specify distillation parameters')
-    parser.add_argument('--distill-weight', type=float,
-                        help='Distillation weight')
-    parser.add_argument('--distill-temp', type=float,
-                        help='Distillation temperature')
-    parser.add_argument('--teacher-arch', type=str,
-                        help='Teacher architecture')
-    parser.add_argument('--teacher-base-width', type=int,
-                        help='Teacher architecture base width')
-    parser.add_argument('--teacher-path', type=str, metavar='PATH',
-                        help='Teacher model checkpoint path')
-
     parser.add_argument('--print-freq', '-p', default=1, type=int,
                         metavar='N', help='print frequency (per epoch)')
     parser.add_argument('--log-freq', '--lf', default=4, type=int, metavar='N',
                         help="TensorBoard log frequency during training (per epoch)")
+    parser.add_argument('--save20', default=False, type=bool,
+                        help='Save the best model of every 20 epochs')
+
+    parser.add_argument('--log-dir', '--ld', default='runs', type=str,
+                        help="Log folder for TensorBoard")
 
     # TODO: delete
     parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
@@ -278,7 +270,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
         if epoch % 20 == 0: # Reset, don't need to save it: the next one should _at least_ happen once, hopefully
             best_last20_prec1 = 0
         # remember best prec@1 of the last 20 epochs, and save it
-        if prec1 > best_last20_prec1:
+        if args('save20') and prec1 > best_last20_prec1:
             best_last20_prec1 = prec1
             epoch_rounded = ((epoch // 20)+1) * 20
             torch.save({
