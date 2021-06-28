@@ -177,10 +177,23 @@ def evaluate(val_loader, model):
         #
         outputs_correctclass_correct = []
         for i, (inputs, targets) in enumerate(val_loader):
-            targets = targets.cuda()
-            inputs = inputs.cuda()
-            raw_outputs = model(inputs)
-            softmax_outputs = F.softmax(raw_outputs, dim=1)
+            targets = targets.cuda()  # Bx1
+            inputs = inputs.cuda()  # Bx32x32x3
+            raw_outputs = model(inputs)  # BxC
+            softmax_outputs = F.softmax(raw_outputs, dim=1)  # BxC
+            raw_max_outputs, predicteds = torch.max(raw_outputs, dim=1, keepdim=True)  # Bx1
+            if i == 0:
+                print(targets.shape)
+                print(inputs.shape)
+                print(raw_outputs.shape)
+                print(softmax_outputs.shape)
+                print(raw_max_outputs.shape)
+                print(predicteds.shape)
+                print(targets)
+                print(raw_outputs)
+                print(raw_max_outputs)
+                print(predicteds)
+            #logsoftmax_outputs = F.log_softmax(raw_outputs, dim=1)
 
 
 def validate(val_loader, model, criterion, epoch, writer=None):
