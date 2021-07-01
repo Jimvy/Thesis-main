@@ -21,59 +21,10 @@ from parsing import get_parser, parse_args, args
 from scheduling import LRSchedulerSequence
 from utils.acc import accuracy
 from utils.statistics_meter import AverageMeter
+from tensorboard_logging import get_folder_name
 
-
-
-_FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
-_FOLDER_IGNORED_ARGS = ['arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path', 'log_dir']
 
 _checkpoint_filename_fmt = None
-
-
-def get_folder_name(args, main_model, teacher):
-    arg_keys = sorted(vars(args).keys())
-    attrs = []
-    attrs.append(args.dataset)
-    arg_keys.remove('dataset')
-    attrs.append(main_model.get_model_name())
-    arg_keys.remove('arch')
-    arg_keys.remove('base_width')
-    if args.distill:
-        attrs.append("distill")
-        attrs.append(teacher.get_model_name())
-        attrs.append(f"temp={args.distill_temp}")
-        attrs.append(f"weight={args.distill_weight}")
-        arg_keys.remove("distill")
-        arg_keys.remove("distill_temp")
-        arg_keys.remove("distill_weight")
-        arg_keys.remove("teacher_arch")
-        arg_keys.remove("teacher_base_width")
-    for (arg_key_print, arg_key_name) in _FOLDER_INCLUDED_ARGS:
-        attrs.append(f'{arg_key_print}={getattr(args, arg_key_name)}')
-        arg_keys.remove(arg_key_name)
-    if args.use_lr_warmup:
-        attrs.append(f'use_warmup_num_epochs={args.lr_warmup_num_epochs}')
-    arg_keys.remove('use_lr_warmup')
-    arg_keys.remove('lr_warmup_num_epochs')
-    if args.use_test_set_as_valid:
-        attrs.append(f"validation=test_set")
-    arg_keys.remove('use_test_set_as_valid')
-    for arg_key in _FOLDER_IGNORED_ARGS:
-        if arg_key in arg_keys:
-            arg_keys.remove(arg_key)
-    for arg_key in arg_keys:
-        arg_val = getattr(args, arg_key)
-        if arg_val is not None and arg_val is not False and arg_key != 'comment':
-            if arg_val == True:
-                attrs.append(f'{arg_key}')
-            else:
-                attrs.append(f'{arg_key}={arg_val}')
-            arg_keys.remove(arg_key)
-    attrs.append('{}'.format(datetime.now().strftime('%b%d_%H-%M-%S')))
-    attrs.append('gpu{}'.format(os.environ.get('CUDA_VISIBLE_DEVICES', 'all')))
-    if args.comment:
-        attrs.append(args.comment)
-    return '_'.join(attrs)
 
 
 def get_writer(log_subfolder):
@@ -131,6 +82,7 @@ def get_trainer_parser():
                         help='DEPRECATED: evaluate model on validation set')
 
     return parser
+
 
 def main():
     global _checkpoint_filename_fmt
@@ -226,7 +178,7 @@ def main():
         criterion.half()
 
     # Logging-related stuff
-    log_subfolder = get_folder_name(args, model, teacher)
+    log_subfolder = get_folder_name(args, model, teacher, evaluate_mode=False)
     print(f"Logging into folder {log_subfolder}")
     log_subfolder = os.path.join(args.log_dir, log_subfolder)
     _checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')

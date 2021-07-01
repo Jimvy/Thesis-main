@@ -18,14 +18,13 @@ from torch.utils.tensorboard import SummaryWriter
 import models
 import cifar
 from criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
+from tensorboard_logging import get_folder_name
 from parsing import get_parser, parse_args, args
 from utils.acc import accuracy
 from utils.statistics_meter import AverageMeter
 
 
 _critname_to_crit = {'CE': CrossEntropyLossCriterion, 'HKD': HKDCriterion}
-_FOLDER_INCLUDED_ARGS = []
-_FOLDER_IGNORED_ARGS = ['batch_size', 'arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path', 'log_dir']
 
 
 def get_evaluate_parser():
@@ -41,51 +40,6 @@ def get_evaluate_parser():
                         help='Log folder for TensorBoard')
 
     return parser
-
-
-def get_folder_name(args, main_model, teacher):
-    arg_keys = sorted(vars(args).keys())
-    attrs = []
-    attrs.append(args.dataset)
-    arg_keys.remove('dataset')
-    attrs.append(main_model.get_model_name())
-    arg_keys.remove('arch')
-    arg_keys.remove('base_width')
-    print(args.chkpt)
-    print(args.chkpt.replace('/', '_'))
-    arg_keys.remove("chkpt")
-    attrs.append(f"chkpt={args.chkpt.replace('/', '_')}")
-    if args.distill:
-        attrs.append("distill")
-        attrs.append(teacher.get_model_name())
-        attrs.append(f"temp={args.distill_temp}")
-        attrs.append(f"weight={args.distill_weight}")
-        arg_keys.remove("distill")
-        arg_keys.remove("distill_temp")
-        arg_keys.remove("distill_weight")
-        arg_keys.remove("teacher_arch")
-        arg_keys.remove("teacher_base_width")
-    for (arg_key_print, arg_key_name) in _FOLDER_INCLUDED_ARGS:
-        attrs.append(f'{arg_key_print}={getattr(args, arg_key_name)}')
-        arg_keys.remove(arg_key_name)
-    if args.use_test_set_as_valid:
-        attrs.append(f"validation=test_set")
-    arg_keys.remove('use_test_set_as_valid')
-    for arg_key in _FOLDER_IGNORED_ARGS:
-        if arg_key in arg_keys:
-            arg_keys.remove(arg_key)
-    for arg_key in arg_keys:
-        arg_val = getattr(args, arg_key)
-        if arg_val is not None and arg_val is not False and arg_key != 'comment':
-            if arg_val == True:
-                attrs.append(f'{arg_key}')
-            else:
-                attrs.append(f'{arg_key}={arg_val}')
-            arg_keys.remove(arg_key)
-    attrs.append('{}'.format(datetime.now().strftime('%b%d_%H-%M-%S')))
-    if args.comment:
-        attrs.append(args.comment)
-    return '_'.join(attrs)
 
 
 def get_writer(log_subfolder):
@@ -159,7 +113,7 @@ def main():
         criterion.half()
 
     # Logging-related stuff
-    log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher))
+    log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher, evaluate_mode=True))
     writer = get_writer(log_subfolder)
 
     # TODO: add hparams to TensorBoard

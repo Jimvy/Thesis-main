@@ -62,6 +62,7 @@ def get_parser(description='Proper ResNets for CIFAR10 in pytorch'):
 
     return parser
 
+
 def parse_args(parser):
     """
     Parses the arguments of the program (sys.argv) by using the provided parser.
@@ -70,6 +71,7 @@ def parse_args(parser):
     global _args
     _args = parser.parse_args()
     return _args
+
 
 def args(field_name):
     """
