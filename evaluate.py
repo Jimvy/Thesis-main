@@ -27,6 +27,7 @@ _critname_to_crit = {'CE': CrossEntropyLossCriterion, 'HKD': HKDCriterion}
 _FOLDER_INCLUDED_ARGS = []
 _FOLDER_IGNORED_ARGS = ['batch_size', 'arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum', 'start_epoch', 'epochs', 'teacher_path', 'log_dir']
 
+
 def get_evaluate_parser():
     parser = get_parser('Evaluation script for CIFAR datasets')
 
@@ -158,42 +159,95 @@ def main():
         criterion.half()
 
     # Logging-related stuff
-    #log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher))
-    #writer = get_writer(log_subfolder)
+    log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher))
+    writer = get_writer(log_subfolder)
 
     # TODO: add hparams to TensorBoard
 
-    validate(val_loader, model, criterion, 42)
+    # validate(val_loader, model, criterion, 42)
+    evaluate(val_loader, model, writer)
 
     # TODO: add precision-recall curve
-    #if hasattr(writer, "flush"):
-    #    writer.flush()
-    #writer.close()
+    if hasattr(writer, "flush"):
+        writer.flush()
+    writer.close()
 
 
-def evaluate(val_loader, model):
+def evaluate(val_loader, model, writer):
     model.eval()
     with torch.no_grad():
         #
-        outputs_correctclass_correct = []
+        outputs_correct_l = []
+        outputs_idxtarget_any_l = []
+        outputs_idxpredicted_any_l = []
+        outputs_idxtarget_incorrect_l = []
+        outputs_idxpredicted_incorrect_l = []
+        softmax_correct_l = []
+        softmax_idxtarget_any_l = []
+        softmax_idxpredicted_any_l = []
+        softmax_idxtarget_incorrect_l = []
+        softmax_idxpredicted_incorrect_l = []
         for i, (inputs, targets) in enumerate(val_loader):
-            targets = targets.cuda()  # Bx1
-            inputs = inputs.cuda()  # Bx32x32x3
+            targets = targets.cuda()  # B
+            B = targets.shape[0]
+            inputs = inputs.cuda()  # Bx3x32x32
             raw_outputs = model(inputs)  # BxC
             softmax_outputs = F.softmax(raw_outputs, dim=1)  # BxC
-            raw_max_outputs, predicteds = torch.max(raw_outputs, dim=1, keepdim=True)  # Bx1
-            if i == 0:
-                print(targets.shape)
-                print(inputs.shape)
-                print(raw_outputs.shape)
-                print(softmax_outputs.shape)
-                print(raw_max_outputs.shape)
-                print(predicteds.shape)
-                print(targets)
-                print(raw_outputs)
-                print(raw_max_outputs)
-                print(predicteds)
-            #logsoftmax_outputs = F.log_softmax(raw_outputs, dim=1)
+            raw_max_outputs, predicteds = torch.max(raw_outputs, dim=1)  # Bx1, Bx1
+            idx_correct = (predicteds == targets)  # B
+            idx_incorrect = ~idx_correct
+            # https://stackoverflow.com/questions/61096522/pytorch-tensor-advanced-indexing
+            ro_idxtt = raw_outputs[range(B), targets]
+            ro_idxpp = raw_max_outputs
+            ro_idxtt_incorrect = ro_idxtt[idx_incorrect]
+            ro_idxpp_incorrect = ro_idxpp[idx_incorrect]
+            ro_idx_correct = ro_idxtt[idx_correct]
+            outputs_correct_l.append(ro_idx_correct)
+            outputs_idxtarget_any_l.append(ro_idxtt)
+            outputs_idxpredicted_any_l.append(ro_idxpp)
+            outputs_idxtarget_incorrect_l.append(ro_idxtt_incorrect)
+            outputs_idxpredicted_incorrect_l.append(ro_idxpp_incorrect)
+            # softmax
+            sftm_idxtt = softmax_outputs[range(B), targets]
+            sftm_idxpp = softmax_outputs[range(B), predicteds]
+            sftm_idxtt_incorrect = sftm_idxtt[idx_incorrect]
+            sftm_idxpp_incorrect = sftm_idxpp[idx_incorrect]
+            sftm_idx_correct = sftm_idxtt[idx_correct]
+            softmax_correct_l.append(sftm_idx_correct)
+            softmax_idxtarget_any_l.append(sftm_idxtt)
+            softmax_idxpredicted_any_l.append(sftm_idxpp)
+            softmax_idxtarget_incorrect_l.append(sftm_idxtt_incorrect)
+            softmax_idxpredicted_incorrect_l.append(sftm_idxpp_incorrect)
+        raw_outputs_correct = torch.cat(outputs_correct_l)
+        raw_outputs_idxtarget_any = torch.cat(outputs_idxtarget_any_l)
+        raw_outputs_idxpredicted_any = torch.cat(outputs_idxpredicted_any_l)
+        raw_outputs_idxtarget_incorrect = torch.cat(outputs_idxtarget_incorrect_l)
+        raw_outputs_idxpredicted_incorrect = torch.cat(outputs_idxpredicted_incorrect_l)
+        softmax_correct = torch.cat(softmax_correct_l)
+        softmax_idxtarget_any = torch.cat(softmax_idxtarget_any_l)
+        softmax_idxpredicted_any = torch.cat(softmax_idxpredicted_any_l)
+        softmax_idxtarget_incorrect = torch.cat(softmax_idxtarget_incorrect_l)
+        softmax_idxpredicted_incorrect = torch.cat(softmax_idxpredicted_incorrect_l)
+        writer.add_histogram('output/target', raw_outputs_idxtarget_any, 180)
+        writer.add_histogram('output/predicted', raw_outputs_idxpredicted_any, 180)
+        writer.add_histogram('output/correct', raw_outputs_correct, 180)
+        writer.add_histogram('output/target_wrong', raw_outputs_idxtarget_incorrect, 180)
+        writer.add_histogram('output/predicted_wrong', raw_outputs_idxpredicted_incorrect, 180)
+        writer.add_histogram('softmax/target', softmax_idxtarget_any, 180)
+        writer.add_histogram('softmax/predicted', softmax_idxpredicted_any, 180)
+        writer.add_histogram('softmax/correct', softmax_correct, 180)
+        writer.add_histogram('softmax/target_wrong', softmax_idxtarget_incorrect, 180)
+        writer.add_histogram('softmax/predicted_wrong', softmax_idxpredicted_incorrect, 180)
+        writer.add_histogram('output/target', raw_outputs_idxtarget_any, 200)
+        writer.add_histogram('output/predicted', raw_outputs_idxpredicted_any, 200)
+        writer.add_histogram('output/correct', raw_outputs_correct, 200)
+        writer.add_histogram('output/target_wrong', raw_outputs_idxtarget_incorrect, 200)
+        writer.add_histogram('output/predicted_wrong', raw_outputs_idxpredicted_incorrect, 200)
+        writer.add_histogram('softmax/target', softmax_idxtarget_any, 200)
+        writer.add_histogram('softmax/predicted', softmax_idxpredicted_any, 200)
+        writer.add_histogram('softmax/correct', softmax_correct, 200)
+        writer.add_histogram('softmax/target_wrong', softmax_idxtarget_incorrect, 200)
+        writer.add_histogram('softmax/predicted_wrong', softmax_idxpredicted_incorrect, 200)
 
 
 def validate(val_loader, model, criterion, epoch, writer=None):
