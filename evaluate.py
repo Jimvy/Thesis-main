@@ -118,8 +118,8 @@ def main():
 
     # TODO: add hparams to TensorBoard
 
-    # validate(val_loader, model, criterion, 42)
-    evaluate(val_loader, model, writer)
+    print(validate(val_loader, model, criterion, 42))
+    print(evaluate(val_loader, model, writer))
 
     # TODO: add precision-recall curve
     if hasattr(writer, "flush"):
@@ -255,6 +255,7 @@ def validate(val_loader, model, criterion, epoch, writer=None):
     print(f"Valid: Prec1 {top1.avg:.3f} \t (Time: {batch_time.avg:.3f}, Loss: {losses.avg:.4f})")
 
     return top1.avg
+
 
 if __name__ == '__main__':
     main()

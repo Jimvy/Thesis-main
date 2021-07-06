@@ -17,7 +17,7 @@ import models
 import cifar
 from criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
 from evaluate import validate
-from parsing import get_parser, parse_args, args
+from parsing import get_parser, parse_args, args, add_training_args
 from scheduling import LRSchedulerSequence
 from utils.acc import accuracy
 from utils.statistics_meter import AverageMeter
@@ -50,20 +50,7 @@ def get_trainer_parser():
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
 
-    parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
-                        metavar='LR', help='initial learning rate'
-                        '\nNote that for ResNet-112/1202 it is 1e-2')
-    parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
-                        help='momentum')
-    parser.add_argument('--weight-decay', '--wd', default=1e-4, type=float,
-                        metavar='W', help='weight decay')
-    parser.add_argument('--use-lr-warmup', action='store_true',
-                        help="Use learning scheduler 2 to warmup the learning rate")
-    parser.add_argument('--lr-warmup-num-epochs', type=int, default=2,
-                        help='Number of epochs for the warmup, if set')
-    parser.add_argument('--lr-decay', default=0.1, type=float,
-                        help='Learning rate decay factor')
-
+    add_training_args(parser)
     parser.add_argument('--resume', default='', type=str, metavar='PATH',
                         help='path to latest checkpoint')
 
@@ -164,7 +151,7 @@ def main():
         lr_scheduler2 = topt_lr_scheduler.MultiStepLR(
             optimizer,
             gamma=10,
-            milestones=[args.lr_warmup_num_epochs] # First two epochs
+            milestones=[args.lr_warmup_num_epochs]  # First two epochs
         )
         main_lr_scheduler.add_scheduler(lr_scheduler2)
 
