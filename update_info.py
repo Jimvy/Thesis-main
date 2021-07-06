@@ -21,7 +21,6 @@ Full structure of a saved model:
             "arch": the short string name provided at the time,
             "base_width": base width
           }
-    "half": boolean, if present and true, the model was trained using half-precision. Should be removed some time.
     "train_params": {
         "lr": 0.1, float,
         "momentum": 0.9, float,
@@ -165,9 +164,6 @@ def main():
         model.load_state_dict(chkpt['state_dict'])
         criterion = MultiCriterion()
         criterion.add_criterion(CrossEntropyLossCriterion(), "CE")
-        if args.half:
-            model.half()
-            criterion.half()
         prec1 = validate(val_loader, model, criterion, 42)
         chkpt['prec1'] = float(f"{prec1:.2f}")
 

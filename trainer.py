@@ -160,10 +160,6 @@ def main():
     if args.log_freq < 1:
         args.log_freq = 1
 
-    if args.half:
-        model.half()
-        criterion.half()
-
     # Logging-related stuff
     log_subfolder = get_folder_name(args, model, teacher, evaluate_mode=False)
     print(f"Logging into folder {log_subfolder}")
@@ -245,8 +241,6 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
 
         input_var = inputs.cuda()
         targets = targets.cuda()
-        if args('half'):
-            input_var = input_var.half()
 
         # compute output
         outputs = model(input_var)

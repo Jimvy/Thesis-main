@@ -108,10 +108,6 @@ def main():
     else:
         teacher = None
 
-    if args.half:
-        model.half()
-        criterion.half()
-
     # Logging-related stuff
     log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher, evaluate_mode=True))
     writer = get_writer(log_subfolder)
@@ -223,9 +219,6 @@ def validate(val_loader, model, criterion, epoch, writer=None):
         for i, (inputs, targets) in enumerate(val_loader):
             targets = targets.cuda()
             inputs = inputs.cuda()
-
-            if args('half'):
-                inputs = inputs.half()
 
             # compute output
             outputs = model(inputs)

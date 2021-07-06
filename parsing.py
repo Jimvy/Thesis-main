@@ -61,8 +61,6 @@ def add_arch_args(parser):
                              ' (default: resnet32)')
     parser.add_argument('--base-width', metavar='WIDTH', default=16, type=int,
                         help='width of the base layer')
-    parser.add_argument('--half', dest='half', action='store_true',
-                        help='use half-precision (16-bit)')
 
 
 def add_training_args(parser):
