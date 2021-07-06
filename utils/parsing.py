@@ -5,10 +5,8 @@ Contains the common parts of the parsing for trainer.py and eval.py
 
 """
 import argparse
-import os
 
 import models
-import cifar
 
 _model_names = sorted(
     name for name in models.__dict__

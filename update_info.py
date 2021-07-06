@@ -52,10 +52,10 @@ import sys
 import torch
 
 import cifar
-from criterion import MultiCriterion, CrossEntropyLossCriterion
-from evaluate import validate
 import models
-from parsing import parse_args, add_arch_args, add_dataset_args, add_distill_args, add_training_args
+from evaluate import validate
+from code.criterion import MultiCriterion, CrossEntropyLossCriterion
+from utils.parsing import parse_args, add_arch_args, add_dataset_args, add_distill_args, add_training_args
 
 
 def get_update_parser():

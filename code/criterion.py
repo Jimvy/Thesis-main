@@ -5,6 +5,7 @@ import torch.nn.functional as F
 class Criterion(nn.Module):
     pass
 
+
 class MultiCriterion(Criterion):
     def __init__(self):
         super().__init__()

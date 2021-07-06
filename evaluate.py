@@ -3,25 +3,23 @@ Evaluation-related functions.
 
 
 """
-from datetime import datetime
 import os
 import sys
 import time
 
 import torch
 import torch.backends.cudnn as cudnn
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.parallel
 from torch.utils.tensorboard import SummaryWriter
 
-import models
 import cifar
-from criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
-from tensorboard_logging import get_folder_name
-from parsing import get_parser, parse_args, args
+import models
+from code.criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
 from utils.acc import accuracy
+from utils.parsing import get_parser, parse_args
 from utils.statistics_meter import AverageMeter
+from utils.tensorboard_logging import get_folder_name
 
 
 _critname_to_crit = {'CE': CrossEntropyLossCriterion, 'HKD': HKDCriterion}

@@ -1,27 +1,23 @@
-from datetime import datetime
 import os
-import shutil
 import sys
 import time
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.optim
 from torch.optim import lr_scheduler as topt_lr_scheduler
 from torch.utils.tensorboard import SummaryWriter
 
-import models
 import cifar
-from criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
+import models
 from evaluate import validate
-from parsing import get_parser, parse_args, args, add_training_args
-from scheduling import LRSchedulerSequence
+from code.criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
+from code.scheduling import LRSchedulerSequence
 from utils.acc import accuracy
+from utils.parsing import get_parser, parse_args, args, add_training_args
 from utils.statistics_meter import AverageMeter
-from tensorboard_logging import get_folder_name
+from utils.tensorboard_logging import get_folder_name
 
 
 _checkpoint_filename_fmt = None
