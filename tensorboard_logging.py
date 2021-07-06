@@ -2,13 +2,13 @@ import os
 from datetime import datetime
 
 _FOLDER_IGNORED_ARGS_TRAIN = [
-    'arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum',
-    'start_epoch', 'epochs', 'teacher_path', 'log_dir'
+    'arch', 'workers', 'log_freq', 'print_freq', 'momentum',
+    'epochs', 'teacher_path', 'log_dir'
 ]
 _FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
 _FOLDER_IGNORED_ARGS_TEST = [
-    'batch_size', 'arch', 'workers', 'resume', 'log_freq', 'print_freq', 'momentum',
-    'start_epoch', 'epochs', 'teacher_path', 'log_dir'
+    'batch_size', 'arch', 'workers', 'log_freq', 'print_freq', 'momentum',
+    'epochs', 'teacher_path', 'log_dir'
 ]
 
 

@@ -47,12 +47,8 @@ def get_trainer_parser():
 
     parser.add_argument('--epochs', default=200, type=int, metavar='N',
                         help='number of total epochs to run')
-    parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-                        help='manual epoch number (useful on restarts)')
 
     add_training_args(parser)
-    parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                        help='path to latest checkpoint')
 
     parser.add_argument('--print-freq', '-p', default=1, type=int,
                         metavar='N', help='print frequency (per epoch)')
@@ -63,10 +59,6 @@ def get_trainer_parser():
 
     parser.add_argument('--log-dir', '--ld', default='runs', type=str,
                         help="Log folder for TensorBoard")
-
-    # TODO: delete
-    parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
-                        help='DEPRECATED: evaluate model on validation set')
 
     return parser
 
@@ -102,17 +94,6 @@ def main():
     )
     model.cuda()
 
-    if args.resume:
-        if os.path.isfile(args.resume):
-            print("Loading checkpoint '{}'".format(args.resume))
-            chkpt = torch.load(args.resume)
-            model.load_state_dict(chkpt['state_dict'])
-            best_prec1 = chkpt['best_prec1'] if 'best_prec1' in chkpt else chkpt['best_prec1_last20']
-            best_prec_last_epoch = chkpt['epoch'] if 'epoch' in chkpt else 200
-            print(f"Loaded checkpoint, epochs up to {best_prec_last_epoch}, accuracy {best_prec1}")
-        else:
-            print(f"No checkpoint found at '{args.resume}'")
-
     # define loss function (criterion)
     criterion = MultiCriterion()
     criterion.add_criterion(CrossEntropyLossCriterion(), "CE")
@@ -140,8 +121,7 @@ def main():
     lr_scheduler1 = topt_lr_scheduler.MultiStepLR(
         optimizer,
         milestones=[100, 150],
-        gamma=args.lr_decay,
-        last_epoch=args.start_epoch - 1)
+        gamma=args.lr_decay)
     main_lr_scheduler = LRSchedulerSequence(lr_scheduler1)
     if args.use_lr_warmup:
         for param_group in optimizer.param_groups:
@@ -180,7 +160,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
     best_prec1 = 0
     best_last20_prec1 = 0
 
-    for epoch in range(args('start_epoch'), args('epochs')):
+    for epoch in range(0, args('epochs')):
 
         # train for one epoch
         writer.add_scalar("base_learning_rate", optimizer.param_groups[0]['lr'], epoch)

@@ -44,7 +44,6 @@ Not present:
 - number of worker threads in the data loaders
 - print_freq, log_freq
 - save20, log_dir
-- evaluate, resume
 """
 import argparse
 import os
