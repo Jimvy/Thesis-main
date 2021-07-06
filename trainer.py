@@ -88,14 +88,12 @@ def main():
         train_loader = dataset.get_train_loader(
             args.batch_size, shuffle=True,
             num_workers=args.workers,
-            use_color_jitter=args.use_color_jitter
         )
         val_loader = dataset.get_test_loader(512, num_workers=args.workers)
     else:
         train_loader, val_loader = dataset.get_train_val_loaders(
             args.batch_size, shuffle=True,
             num_workers=args.workers,
-            use_color_jitter=args.use_color_jitter
         )  # By default the split is at 90%/10%, so 45k/5k
 
     model = models.__dict__[args.arch](

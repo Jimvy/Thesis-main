@@ -46,8 +46,6 @@ def add_dataset_args(parser, with_default_dataset=True):
                             help="Dataset to use")
     parser.add_argument('--use-test-set-as-valid', action='store_true',
                         help='Use test set as validation set, and the full train set as train set, instead of the 5k/45k split')
-    parser.add_argument('--use-color-jitter', '--cj', action='store_true',
-                        help='Use color jitter of 0.1 in train loader')
     parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
                         help='number of data loading workers')
     parser.add_argument('-b', '--batch-size', '--bs', default=128, type=int,

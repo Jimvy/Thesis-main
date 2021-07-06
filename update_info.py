@@ -41,7 +41,6 @@ Full structure of a saved model:
     }
 }
 Not present:
-- color jitter, as it is unused
 - number of worker threads in the data loaders
 - print_freq, log_freq
 - save20, log_dir
@@ -154,7 +153,6 @@ def main():
         else:
             _, val_loader = dataset.get_train_val_loaders(
                 512, shuffle=True, num_workers=args.workers,
-                use_color_jitter=args.use_color_jitter
             )
         model = models.__dict__[args.arch](
             num_classes=dataset.get_num_classes(),
