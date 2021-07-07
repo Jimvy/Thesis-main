@@ -3,6 +3,7 @@ Evaluation-related functions.
 
 
 """
+import argparse
 import os
 import sys
 import time
@@ -36,7 +37,10 @@ def get_evaluate_parser():
                         metavar='N', help='mini-batch size')
 
     parser.add_argument('--log-dir', '--ld', default='evals', type=str,
-                        help='Log folder for TensorBoard')
+                        help='Log folder for TensorBoard. Ignored for the better if reusing original training folder')
+    parser.add_argument('--no-reuse-folder', default=False, action='store_true',
+                        help="Don't reuse original training folder name as destination folder."
+                             "Seriously, don't do this, the folder name is disgusting.")
 
     return parser
 
@@ -70,7 +74,7 @@ def main():
 
     # Dataset
     dataset_name, use_test_set_as_valid = load_dataset_args_from_checkpoint_or_args(chkpt, args)
-    args.dataset = dataset_name
+    args.dataset = dataset_name  # dirty fix
     dataset = cifar.__dict__[dataset_name]('~/datasets', pin_memory=True)
     num_classes = dataset.get_num_classes()
     if use_test_set_as_valid:
@@ -95,7 +99,11 @@ def main():
         teacher = None
 
     # Logging-related stuff
-    log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher, evaluate_mode=True))
+    if args.no_reuse_folder:
+        log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher, evaluate_mode=True))
+    else:
+        log_subfolder = os.path.dirname(model_chkpt_path)
+    print(f"Logging into folder {log_subfolder}")
     writer = get_writer(log_subfolder)
 
     # TODO: add hparams to TensorBoard

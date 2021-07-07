@@ -64,6 +64,10 @@ def main():
     global _checkpoint_filename_fmt
     parser = get_trainer_parser()
     args = parse_args(parser)
+    if args.print_freq < 1:
+        args.print_freq = 1
+    if args.log_freq < 1:
+        args.log_freq = 1
 
     cudnn.benchmark = True
 
@@ -117,11 +121,6 @@ def main():
             milestones=[args.lr_warmup_num_epochs]  # First two epochs
         )
         main_lr_scheduler.add_scheduler(lr_scheduler2)
-
-    if args.print_freq < 1:
-        args.print_freq = 1
-    if args.log_freq < 1:
-        args.log_freq = 1
 
     # Logging-related stuff
     log_subfolder = get_folder_name(args, model, teacher, evaluate_mode=False)

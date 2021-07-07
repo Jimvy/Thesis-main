@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import datetime
 
 _FOLDER_IGNORED_ARGS_TRAIN = [
@@ -23,8 +24,8 @@ def get_folder_name(args, main_model, teacher,
     arg_keys.remove('arch')
     arg_keys.remove('base_width')
     if evaluate_mode:
-        print(args.chkpt)
-        print(args.chkpt.replace('/', '_'))
+        print("WARNING, you are doing something extremely disgusting here, I don't agree with it", file=sys.stderr)
+        arg_keys.remove("no_reuse_folder")
         arg_keys.remove("chkpt")
         attrs.append(f"chkpt={args.chkpt.replace('/', '_')}")
     if args.distill:
