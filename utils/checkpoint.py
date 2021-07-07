@@ -1,6 +1,7 @@
 """
 Utility functions to help with loading models from checkpoints
 """
+import argparse
 import os
 import sys
 
@@ -33,6 +34,22 @@ def make_args_teacher_fun(args):
     return f
 
 
+def make_args_object(args_fun, *keys):
+    """
+    Does the opposite of make_args_fun: creates a Namespace whose parameters are specified.
+    :param args_fun: a function
+    :return: a Namespace
+    """
+    r = argparse.Namespace()
+    for k in keys:
+        setattr(r, k, args_fun(k))
+    return r
+
+
+def make_args_obj_for_dataset(args_fun):
+    return make_args_object(args_fun, 'dataset', 'use_test_set_as_valid')
+
+
 def make_args_teacher_fun_from_fun(args_fun):
     """
     Meta: creates a new function from a function. Argument should be returned by "make_args_fun",
@@ -56,16 +73,16 @@ def load_dataset_from_checkpoint_or_args(chkpt, args):
     """
 
 
-def load_dataset_args_from_checkpoint_or_args(chkpt, args_fun):
+def load_dataset_args_from_checkpoint_or_args(chkpt, args):
     r"""
     Loads dataset arguments from the given checkpoint, or from the args if some arguments are missing in the checkpoint.
     :param chkpt: a checkpoint.
-    :param args: a argparse.Namespace. Sorry for the inconvenience.
+    :param args: a argparse.Namespace. Sorry for the inconvenience. Needn't be polymorphic.
     :return: a tuple (str, bool) with the dataset name and whether the model was trained by using the test set
              as a validation set (and thus, was trained with the full train set).
     """
-    args_dataset = args_fun('dataset')
-    args_use_test_set = args_fun('use_test_set_as_valid')
+    args_dataset = args.dataset
+    args_use_test_set = args.use_test_set_as_valid
     if 'dataset' in chkpt:
         if args_dataset and chkpt['dataset']['name'] != args_dataset:
             print(f"Conflicting dataset for the model: {args_dataset} (args) "
@@ -79,10 +96,27 @@ def load_dataset_args_from_checkpoint_or_args(chkpt, args_fun):
     return dataset_name, use_test_set_as_valid
 
 
-def get_num_classes(chkpt, args_fun):
-    dataset_name, _ = load_dataset_args_from_checkpoint_or_args(chkpt, args_fun)
+def get_num_classes(chkpt, args):
+    """
+    Gets the number of classes for the model.
+    It gets the number either from the arguments, or from the dataset name saved in the checkpoint.
+    :param chkpt: a checkpoint for a model that we need to re-incarnate.
+    :param args: arguments of the program, argparse.Namespace
+    :return: the number of classes.
+    """
+    dataset_name, _ = load_dataset_args_from_checkpoint_or_args(chkpt, args)
     num_classes = cifar.__dict__[dataset_name]('~/datasets', pin_memory=True).get_num_classes()
     return num_classes
+
+
+def get_num_classes2(chkpt, args_fun):
+    """
+    Same as above, only takes args_fun
+    :param chkpt: checkpoint
+    :param args_fun: function
+    :return: num classes
+    """
+    return get_num_classes(chkpt, make_args_obj_for_dataset(args_fun))
 
 
 def load_model_from_checkpoint_or_args(chkpt, args_fun, num_classes=None):
@@ -91,13 +125,14 @@ def load_model_from_checkpoint_or_args(chkpt, args_fun, num_classes=None):
     :param chkpt: a checkpoint.
     :param args_fun: a function that returns the appropriate values of the parameters.
                      This is so that we can use this function to load models and teachers,
-                     even if their parameters have different names. NEEDED
+                     even if their parameters have different names.
+                     Required because of load_model_args_from_checkpoint_or_args polymorphism.
     :param num_classes: number of classes of the dataset. Can be retrieved by loading a dataset again,
                         but can also be provided to save some time and memory.
     :return: a loaded model.
     """
     if num_classes is None:
-        num_classes = get_num_classes(chkpt, args_fun)
+        num_classes = get_num_classes2(chkpt, args_fun)
     arch_name, base_width = load_model_args_from_checkpoint_or_args(chkpt, args_fun)
     model = models.__dict__[arch_name](
         num_classes=num_classes,
@@ -108,7 +143,7 @@ def load_model_from_checkpoint_or_args(chkpt, args_fun, num_classes=None):
     return model
 
 
-def load_teacher_from_checkpoint_or_args(args_fun, chkpt=None, num_classes=None):
+def load_teacher_from_checkpoint_or_args(args, chkpt=None, num_classes=None):
     """
     Loads a teacher from the given checkpoint, or from the args if some arguments are missing in the checkpoint.
     Regarding the way this is implemented: here, chkpt would be the checkpoint of a student,
@@ -116,6 +151,7 @@ def load_teacher_from_checkpoint_or_args(args_fun, chkpt=None, num_classes=None)
     then we load the checkpoint of the teacher, then we load the teacher as a regular model.
 
     :param args_fun: a function that returns appropriate values of the parameters.
+    :param args: a Namespace. Can be used because we only need to translate to a function in the rare case of not having the number of classes.
     :param chkpt: a checkpoint. Passing None is helpful if you don't have a checkpoint and want to get values from args
     :param num_classes: number of classes.
     :return: a teacher, loaded appropriately, as well as the checkpoint that was used to load it.
@@ -123,8 +159,8 @@ def load_teacher_from_checkpoint_or_args(args_fun, chkpt=None, num_classes=None)
     if chkpt is None:
         chkpt = {}  # empty dictionary, that way no arg will be retrieved by it.
     if num_classes is None:
-        num_classes = get_num_classes(chkpt, args_fun)
-    teacher_path = args_fun('teacher_path')  # args override the teacher path; that way we can evaluate a student with another teacher
+        num_classes = get_num_classes(chkpt, args)
+    teacher_path = args.teacher_path  # args override the teacher path; that way we can evaluate a student with another teacher
     if not teacher_path:
         # Okay, so we need to get it from the checkpoint
         if 'train_params' not in chkpt or 'distill' not in chkpt['train_params']:
@@ -147,7 +183,7 @@ def load_teacher_from_checkpoint_or_args(args_fun, chkpt=None, num_classes=None)
             sys.exit(-2)
     # Okay, so now we have a valid path name to a teacher; let's load it.
     chkpt_teacher = torch.load(teacher_path)
-    teacher = load_model_from_checkpoint_or_args(chkpt_teacher, make_args_teacher_fun_from_fun(args_fun), num_classes)
+    teacher = load_model_from_checkpoint_or_args(chkpt_teacher, make_args_teacher_fun(args), num_classes)
     return teacher
 
 
@@ -160,7 +196,8 @@ def load_model_args_from_checkpoint_or_args(chkpt, args_fun):
     See :func:`make_args_fun` and :fund:`make_args_teacher_fun` for utility functions.
 
     :param chkpt: a checkpoint.
-    :param args_fun: a function that returns the appropriate values of the parameters. NEEDED
+    :param args_fun: a function that returns the appropriate values of the parameters.
+                     Function required because of the polymorphism
     :return: a tuple (arch_name, base_width) of the model architecture parameters
     """
     args_arch = args_fun('arch')

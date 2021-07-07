@@ -14,11 +14,10 @@ import torch.nn.parallel
 from torch.utils.tensorboard import SummaryWriter
 
 import cifar
-import models
 from code.criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
 from utils.acc import accuracy
 from utils.checkpoint import load_dataset_args_from_checkpoint_or_args, load_model_from_checkpoint_or_args,\
-    load_teacher_from_checkpoint_or_args, make_args_fun, make_args_teacher_fun
+    load_teacher_from_checkpoint_or_args, make_args_fun
 from utils.parsing import get_parser, parse_args
 from utils.statistics_meter import AverageMeter
 from utils.tensorboard_logging import get_folder_name
@@ -70,7 +69,7 @@ def main():
     print(f"Loaded checkpoint, epochs up to {best_prec_last_epoch}, accuracy {prec1}/{best_prec1}", file=sys.stderr)
 
     # Dataset
-    dataset_name, use_test_set_as_valid = load_dataset_args_from_checkpoint_or_args(chkpt, args_fun)
+    dataset_name, use_test_set_as_valid = load_dataset_args_from_checkpoint_or_args(chkpt, args)
     args.dataset = dataset_name
     dataset = cifar.__dict__[dataset_name]('~/datasets', pin_memory=True)
     num_classes = dataset.get_num_classes()
@@ -89,16 +88,8 @@ def main():
     criterion.add_criterion(CrossEntropyLossCriterion(), "CE")
 
     if args.distill:
-        teacher = load_teacher_from_checkpoint_or_args(args_fun, chkpt=chkpt, num_classes=num_classes)
-        """teacher = models.__dict__[args.teacher_arch](
-            num_classes=dataset.get_num_classes(),
-            base_width=args.teacher_base_width
-        ).cuda()
-        if not os.path.isfile(args.teacher_path):
-            print(f"No teacher checkpoint found at '{args.teacher_path}'; aborting")
-        chkpt_teacher = torch.load(args.teacher_path)
-        teacher.load_state_dict(chkpt_teacher['state_dict'])"""
-        print(f"Loaded teacher")
+        teacher = load_teacher_from_checkpoint_or_args(args, chkpt=chkpt, num_classes=num_classes)
+        print(f"Loaded teacher", file=sys.stderr)
         criterion.add_criterion(HKDCriterion(teacher, args.distill_temp), "HKD", weight=args.distill_weight)
     else:
         teacher = None
