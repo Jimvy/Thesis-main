@@ -18,7 +18,7 @@ Full structure of a saved model:
     "arch": either
         - a string, like "ResNet32-32" or "VGG-19", usually the name the model gives itself. Should be apt to construct the model back.
         - or a dict: {
-            "arch": the short string name provided at the time,
+            "arch": the short string name provided at the time; definitely a stupid name idea,
             "base_width": base width
           }
     "train_params": {
@@ -44,6 +44,10 @@ Not present:
 - number of worker threads in the data loaders
 - print_freq, log_freq
 - save20, log_dir
+
+On ResNet-32-32:
+cassiopee orig: 7497737; XPS resaved: 7497361; cassiopee updated: 7498053; XPS updated: 7497677;
+update uses 316 on cassiopee and XPS; XPS uses 376 less than cassiopee
 """
 import argparse
 import os
@@ -72,7 +76,7 @@ def get_update_parser():
                         help='The epoch at which this model was saved. Or at least, we think it was saved')
 
     add_arch_args(parser)
-    add_dataset_args(parser, with_default_dataset=False)
+    add_dataset_args(parser)
     add_distill_args(parser)
     add_training_args(parser)
     return parser

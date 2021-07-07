@@ -17,6 +17,8 @@ import cifar
 import models
 from code.criterion import MultiCriterion, CrossEntropyLossCriterion, HKDCriterion
 from utils.acc import accuracy
+from utils.checkpoint import load_dataset_args_from_checkpoint_or_args, load_model_from_checkpoint_or_args,\
+    load_teacher_from_checkpoint_or_args, make_args_fun, make_args_teacher_fun
 from utils.parsing import get_parser, parse_args
 from utils.statistics_meter import AverageMeter
 from utils.tensorboard_logging import get_folder_name
@@ -52,53 +54,50 @@ def get_writer(log_subfolder):
 def main():
     parser = get_evaluate_parser()
     args = parse_args(parser)
+    args_fun = make_args_fun(args)
 
     cudnn.benchmark = True
 
-    dataset = cifar.__dict__[args.dataset]('~/datasets', pin_memory=True)
+    model_chkpt_path = args.chkpt
+    if not os.path.isfile(model_chkpt_path):
+        print(f"No checkpoint found at '{args.chkpt}'", file=sys.stderr)
+        sys.exit(-1)
+    print("Loading checkpoint '{}'".format(model_chkpt_path), file=sys.stderr)
+    chkpt = torch.load(model_chkpt_path)
+    best_prec1 = chkpt['best_prec1'] if 'best_prec1' in chkpt else chkpt['best_prec1_last20']
+    prec1 = chkpt['prec1'] if 'prec1' in chkpt else best_prec1
+    best_prec_last_epoch = chkpt['epoch'] if 'epoch' in chkpt else 200
+    print(f"Loaded checkpoint, epochs up to {best_prec_last_epoch}, accuracy {prec1}/{best_prec1}", file=sys.stderr)
 
-    if args.use_test_set_as_valid:
-        train_loader = dataset.get_train_loader(
-            args.batch_size, shuffle=True,
-            num_workers=args.workers,
-        )
+    # Dataset
+    dataset_name, use_test_set_as_valid = load_dataset_args_from_checkpoint_or_args(chkpt, args_fun)
+    args.dataset = dataset_name
+    dataset = cifar.__dict__[dataset_name]('~/datasets', pin_memory=True)
+    num_classes = dataset.get_num_classes()
+    if use_test_set_as_valid:
         val_loader = dataset.get_test_loader(512, num_workers=args.workers)
     else:
-        train_loader, val_loader = dataset.get_train_val_loaders(
+        _, val_loader = dataset.get_train_val_loaders(
             args.batch_size, shuffle=True,
             num_workers=args.workers,
         )  # By default the split is at 90%/10%, so 45k/5k
 
-    model = models.__dict__[args.arch](
-        num_classes=dataset.get_num_classes(),
-        base_width=args.base_width
-    )
-    model.cuda()
-
-    model_chkpt_path = args.chkpt
-    if os.path.isfile(model_chkpt_path):
-        print("Loading checkpoint '{}'".format(model_chkpt_path))
-        chkpt = torch.load(model_chkpt_path)
-        model.load_state_dict(chkpt['state_dict'])
-        best_prec1 = chkpt['best_prec1'] if 'best_prec1' in chkpt else chkpt['best_prec1_last20']
-        best_prec_last_epoch = chkpt['epoch'] if 'epoch' in chkpt else 200
-        print(f"Loaded checkpoint, epochs up to {best_prec_last_epoch}, accuracy {best_prec1}")
-    else:
-        print(f"No checkpoint found at '{args.chkpt}'")
-        sys.exit(-1)
+    # Model
+    model = load_model_from_checkpoint_or_args(chkpt, args_fun, num_classes=num_classes)
 
     criterion = MultiCriterion()
     criterion.add_criterion(CrossEntropyLossCriterion(), "CE")
 
     if args.distill:
-        teacher = models.__dict__[args.teacher_arch](
+        teacher = load_teacher_from_checkpoint_or_args(args_fun, chkpt=chkpt, num_classes=num_classes)
+        """teacher = models.__dict__[args.teacher_arch](
             num_classes=dataset.get_num_classes(),
             base_width=args.teacher_base_width
         ).cuda()
         if not os.path.isfile(args.teacher_path):
             print(f"No teacher checkpoint found at '{args.teacher_path}'; aborting")
-        chkpt = torch.load(args.teacher_path)
-        teacher.load_state_dict(chkpt['state_dict'])
+        chkpt_teacher = torch.load(args.teacher_path)
+        teacher.load_state_dict(chkpt_teacher['state_dict'])"""
         print(f"Loaded teacher")
         criterion.add_criterion(HKDCriterion(teacher, args.distill_temp), "HKD", weight=args.distill_weight)
     else:

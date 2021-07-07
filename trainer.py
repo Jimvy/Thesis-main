@@ -104,8 +104,8 @@ def main():
         if not os.path.isfile(args.teacher_path):
             print(f"No checkpoint found at '{args.teacher_path}'; aborting")
             return
-        chkpt = torch.load(args.teacher_path)
-        teacher.load_state_dict(chkpt['state_dict'])
+        chkpt_teacher = torch.load(args.teacher_path)
+        teacher.load_state_dict(chkpt_teacher['state_dict'])
         print("Loaded teacher")
         criterion.add_criterion(HKDCriterion(teacher, args.distill_temp), "HKD", weight=args.distill_weight)
 

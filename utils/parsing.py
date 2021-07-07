@@ -33,15 +33,10 @@ def get_parser(description='Proper ResNets for CIFAR10 in pytorch'):
     return parser
 
 
-def add_dataset_args(parser, with_default_dataset=True):
-    if with_default_dataset:
-        parser.add_argument('--dataset', '--ds', default='CIFAR10',
-                            choices=["CIFAR10", "CIFAR100", "CIFAR100Coarse"],
-                            help="Dataset to use")
-    else:
-        parser.add_argument('--dataset', '--ds',
-                            choices=["CIFAR10", "CIFAR100", "CIFAR100Coarse"],
-                            help="Dataset to use")
+def add_dataset_args(parser):
+    parser.add_argument('--dataset', '--ds',
+                        choices=["CIFAR10", "CIFAR100", "CIFAR100Coarse"],
+                        help="Dataset to use")
     parser.add_argument('--use-test-set-as-valid', action='store_true',
                         help='Use test set as validation set, and the full train set as train set, instead of the 5k/45k split')
     parser.add_argument('-j', '--workers', default=2, type=int, metavar='N',
@@ -51,7 +46,7 @@ def add_dataset_args(parser, with_default_dataset=True):
 
 
 def add_arch_args(parser):
-    parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet32',
+    parser.add_argument('--arch', '-a', metavar='ARCH',
                         choices=_model_names,
                         help='model architecture: ' + ' | '.join(_model_names) +
                              ' (default: resnet32)')
