@@ -41,6 +41,8 @@ def get_evaluate_parser():
     parser.add_argument('--no-reuse-folder', default=False, action='store_true',
                         help="Don't reuse original training folder name as destination folder."
                              "Seriously, don't do this, the folder name is disgusting.")
+    parser.add_argument('--eval-distrib', action='store_true', default=False,
+                        help='Evaluate the model and add output distributions to the log folder.')
 
     return parser
 
@@ -104,17 +106,20 @@ def main():
     else:
         log_subfolder = os.path.dirname(model_chkpt_path)
     print(f"Logging into folder {log_subfolder}", file=sys.stderr)
-    writer = get_writer(log_subfolder)
-
-    # TODO: add hparams to TensorBoard
 
     print(validate(val_loader, model, criterion, epoch, evaluate_output_distrib=False))
-    evaluate(val_loader, model, writer, epoch)
 
-    # TODO: add precision-recall curve
-    if hasattr(writer, "flush"):
-        writer.flush()
-    writer.close()
+    if args.eval_distrib:  # TODO if other kinds of evaluation, add them here
+        writer = get_writer(log_subfolder)
+
+        # TODO: add hparams to TensorBoard
+
+        evaluate(val_loader, model, writer, epoch)
+
+        # TODO: add precision-recall curve
+        if hasattr(writer, "flush"):
+            writer.flush()
+        writer.close()
 
 
 def evaluate(val_loader, model, writer, epoch):

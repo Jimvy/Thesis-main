@@ -194,12 +194,13 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
         best_prec1 = max(prec1, best_prec1)
+        prec1 = float(f"{prec1:.2f}")
 
         if is_best:
             torch.save(dict({
                 'state_dict': model.state_dict(),
                 'prec1': prec1,
-                'best_prec1': best_prec1,
+                'best_prec1': float(f"{best_prec1:.2f}"),
                 'epoch': epoch,
             }, **chkpt_struct), _checkpoint_filename_fmt.format(""))
 
@@ -212,7 +213,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
             torch.save(dict({
                 'state_dict': model.state_dict(),
                 'prec1': prec1,
-                'best_prec1_last20': best_last20_prec1,
+                'best_prec1_last20': float(f"{best_last20_prec1:.2f}"),
                 'epoch': epoch,
             }, **chkpt_struct), _checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
 
