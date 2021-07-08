@@ -69,8 +69,8 @@ def main():
     chkpt = torch.load(model_chkpt_path)
     best_prec1 = chkpt['best_prec1'] if 'best_prec1' in chkpt else chkpt['best_prec1_last20']
     prec1 = chkpt['prec1'] if 'prec1' in chkpt else best_prec1
-    best_prec_last_epoch = chkpt['epoch'] if 'epoch' in chkpt else 200
-    print(f"Loaded checkpoint, epochs up to {best_prec_last_epoch}, accuracy {prec1}/{best_prec1}", file=sys.stderr)
+    epoch = chkpt['epoch'] if 'epoch' in chkpt else 200
+    print(f"Loaded checkpoint, epochs up to {epoch}, accuracy {prec1}/{best_prec1}", file=sys.stderr)
 
     # Dataset
     dataset_name, use_test_set_as_valid = load_dataset_args_from_checkpoint_or_args(chkpt, args)
@@ -103,13 +103,13 @@ def main():
         log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher, evaluate_mode=True))
     else:
         log_subfolder = os.path.dirname(model_chkpt_path)
-    print(f"Logging into folder {log_subfolder}")
+    print(f"Logging into folder {log_subfolder}", file=sys.stderr)
     writer = get_writer(log_subfolder)
 
     # TODO: add hparams to TensorBoard
 
-    print(validate(val_loader, model, criterion, 42))
-    print(evaluate(val_loader, model, writer))
+    print(validate(val_loader, model, criterion, epoch, evaluate_output_distrib=False))
+    evaluate(val_loader, model, writer, epoch)
 
     # TODO: add precision-recall curve
     if hasattr(writer, "flush"):
@@ -117,20 +117,21 @@ def main():
     writer.close()
 
 
-def evaluate(val_loader, model, writer):
+def evaluate(val_loader, model, writer, epoch):
     model.eval()
     with torch.no_grad():
-        #
-        outputs_correct_l = []
-        outputs_idxtarget_any_l = []
-        outputs_idxpredicted_any_l = []
-        outputs_idxtarget_incorrect_l = []
-        outputs_idxpredicted_incorrect_l = []
-        softmax_correct_l = []
-        softmax_idxtarget_any_l = []
-        softmax_idxpredicted_any_l = []
-        softmax_idxtarget_incorrect_l = []
-        softmax_idxpredicted_incorrect_l = []
+        stats_lists = {
+            'output/target': [],
+            'output/predicted': [],
+            'output/correct': [],
+            'output/target_wrong': [],
+            'output/predicted_wrong': [],
+            'softmax/target': [],
+            'softmax/predicted': [],
+            'softmax/correct': [],
+            'softmax/target_wrong': [],
+            'softmax/predicted_wrong': [],
+        }
         for i, (inputs, targets) in enumerate(val_loader):
             targets = targets.cuda()  # B
             B = targets.shape[0]
@@ -142,61 +143,33 @@ def evaluate(val_loader, model, writer):
             idx_incorrect = ~idx_correct
             # https://stackoverflow.com/questions/61096522/pytorch-tensor-advanced-indexing
             ro_idxtt = raw_outputs[range(B), targets]
-            ro_idxpp = raw_max_outputs
             ro_idxtt_incorrect = ro_idxtt[idx_incorrect]
-            ro_idxpp_incorrect = ro_idxpp[idx_incorrect]
+            ro_idxpp_incorrect = raw_max_outputs[idx_incorrect]
             ro_idx_correct = ro_idxtt[idx_correct]
-            outputs_correct_l.append(ro_idx_correct)
-            outputs_idxtarget_any_l.append(ro_idxtt)
-            outputs_idxpredicted_any_l.append(ro_idxpp)
-            outputs_idxtarget_incorrect_l.append(ro_idxtt_incorrect)
-            outputs_idxpredicted_incorrect_l.append(ro_idxpp_incorrect)
+            stats_lists['output/correct'].append(ro_idx_correct)
+            stats_lists['output/target'].append(ro_idxtt)
+            stats_lists['output/predicted'].append(raw_max_outputs)
+            stats_lists['output/target_wrong'].append(ro_idxtt_incorrect)
+            stats_lists['output/predicted_wrong'].append(ro_idxpp_incorrect)
             # softmax
             sftm_idxtt = softmax_outputs[range(B), targets]
             sftm_idxpp = softmax_outputs[range(B), predicteds]
             sftm_idxtt_incorrect = sftm_idxtt[idx_incorrect]
             sftm_idxpp_incorrect = sftm_idxpp[idx_incorrect]
             sftm_idx_correct = sftm_idxtt[idx_correct]
-            softmax_correct_l.append(sftm_idx_correct)
-            softmax_idxtarget_any_l.append(sftm_idxtt)
-            softmax_idxpredicted_any_l.append(sftm_idxpp)
-            softmax_idxtarget_incorrect_l.append(sftm_idxtt_incorrect)
-            softmax_idxpredicted_incorrect_l.append(sftm_idxpp_incorrect)
-        raw_outputs_correct = torch.cat(outputs_correct_l)
-        raw_outputs_idxtarget_any = torch.cat(outputs_idxtarget_any_l)
-        raw_outputs_idxpredicted_any = torch.cat(outputs_idxpredicted_any_l)
-        raw_outputs_idxtarget_incorrect = torch.cat(outputs_idxtarget_incorrect_l)
-        raw_outputs_idxpredicted_incorrect = torch.cat(outputs_idxpredicted_incorrect_l)
-        softmax_correct = torch.cat(softmax_correct_l)
-        softmax_idxtarget_any = torch.cat(softmax_idxtarget_any_l)
-        softmax_idxpredicted_any = torch.cat(softmax_idxpredicted_any_l)
-        softmax_idxtarget_incorrect = torch.cat(softmax_idxtarget_incorrect_l)
-        softmax_idxpredicted_incorrect = torch.cat(softmax_idxpredicted_incorrect_l)
-        writer.add_histogram('output/target', raw_outputs_idxtarget_any, 180)
-        writer.add_histogram('output/predicted', raw_outputs_idxpredicted_any, 180)
-        writer.add_histogram('output/correct', raw_outputs_correct, 180)
-        writer.add_histogram('output/target_wrong', raw_outputs_idxtarget_incorrect, 180)
-        writer.add_histogram('output/predicted_wrong', raw_outputs_idxpredicted_incorrect, 180)
-        writer.add_histogram('softmax/target', softmax_idxtarget_any, 180)
-        writer.add_histogram('softmax/predicted', softmax_idxpredicted_any, 180)
-        writer.add_histogram('softmax/correct', softmax_correct, 180)
-        writer.add_histogram('softmax/target_wrong', softmax_idxtarget_incorrect, 180)
-        writer.add_histogram('softmax/predicted_wrong', softmax_idxpredicted_incorrect, 180)
-        writer.add_histogram('output/target', raw_outputs_idxtarget_any, 200)
-        writer.add_histogram('output/predicted', raw_outputs_idxpredicted_any, 200)
-        writer.add_histogram('output/correct', raw_outputs_correct, 200)
-        writer.add_histogram('output/target_wrong', raw_outputs_idxtarget_incorrect, 200)
-        writer.add_histogram('output/predicted_wrong', raw_outputs_idxpredicted_incorrect, 200)
-        writer.add_histogram('softmax/target', softmax_idxtarget_any, 200)
-        writer.add_histogram('softmax/predicted', softmax_idxpredicted_any, 200)
-        writer.add_histogram('softmax/correct', softmax_correct, 200)
-        writer.add_histogram('softmax/target_wrong', softmax_idxtarget_incorrect, 200)
-        writer.add_histogram('softmax/predicted_wrong', softmax_idxpredicted_incorrect, 200)
+            stats_lists['softmax/correct'].append(sftm_idx_correct)
+            stats_lists['softmax/target'].append(sftm_idxtt)
+            stats_lists['softmax/predicted'].append(sftm_idxpp)
+            stats_lists['softmax/target_wrong'].append(sftm_idxtt_incorrect)
+            stats_lists['softmax/predicted_wrong'].append(sftm_idxpp_incorrect)
+        for tag, l in stats_lists.items():
+            writer.add_histogram(tag, torch.cat(l), epoch)
 
 
-def validate(val_loader, model, criterion, epoch, writer=None):
+def validate(val_loader, model, criterion, epoch, writer=None, evaluate_output_distrib=False):
     """
     Run evaluation
+    if evaluate_output_distrib is True, it also executes evaluate(val_loader, model, writer, epoch). writer should be non-None.
     """
     batch_time = AverageMeter()
     losses = AverageMeter()
@@ -239,7 +212,10 @@ def validate(val_loader, model, criterion, epoch, writer=None):
             for loss_name, loss_meter in losses_components.items():
                 writer.add_scalar("Loss/valid/{}".format(loss_name), loss_meter.avg, epoch)
 
-    print(f"Valid: Prec1 {top1.avg:.3f} \t (Time: {batch_time.avg:.3f}, Loss: {losses.avg:.4f})")
+    print(f"Valid: Prec1 {top1.avg:.3f} \t (Time: {batch_time.avg:.3f}, Loss: {losses.avg:.4f})", file=sys.stderr)
+
+    if evaluate_output_distrib and writer:
+        evaluate(val_loader, model, writer, epoch)
 
     return top1.avg
 

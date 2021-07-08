@@ -1,3 +1,5 @@
+import sys
+
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -16,7 +18,7 @@ class MultiCriterion(Criterion):
 
     def add_criterion(self, crit: Criterion, name: str, weight=1):
         if name in self.criterion_names:
-            print("Warning, criterion with the same name {}".format(name))
+            print("Warning, criterion with the same name {}".format(name), file=sys.stderr)
             id = 1
             new_name = "{}{}".format(name, id)
             while new_name in self.criterion_names:
@@ -39,6 +41,7 @@ class MultiCriterion(Criterion):
             ret[name] = w * crit(inputs, outputs, targets)
         return ret
 
+
 class CrossEntropyLossCriterion(Criterion):
     def __init__(self):
         super().__init__()
@@ -46,6 +49,7 @@ class CrossEntropyLossCriterion(Criterion):
 
     def forward(self, inputs, outputs, targets):
         return self._loss[0](outputs, targets)
+
 
 class HKDCriterion(Criterion):
     def __init__(self, teacher, distill_temp, alpha=2):

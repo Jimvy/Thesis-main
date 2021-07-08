@@ -152,7 +152,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
         lr_scheduler.step()
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion, epoch, writer)
+        prec1 = validate(val_loader, model, criterion, epoch, writer, evaluate_output_distrib=True)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1

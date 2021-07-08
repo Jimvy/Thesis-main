@@ -164,7 +164,7 @@ def load_teacher_from_checkpoint_or_args(args, chkpt=None, num_classes=None):
     if not teacher_path:
         # Okay, so we need to get it from the checkpoint
         if 'train_params' not in chkpt or 'distill' not in chkpt['train_params']:
-            print(f"No teacher path available in the checkpoint; please provide on in the arguments; aborting")
+            print(f"No teacher path available in the checkpoint; please provide on in the arguments; aborting", file=sys.stderr)
             sys.exit(-2)
         d = chkpt['trains_params']['distill']
         teacher_path = d['teacher_path']
