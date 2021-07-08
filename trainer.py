@@ -129,6 +129,42 @@ def main():
     _checkpoint_filename_fmt = os.path.join(log_subfolder, 'model{}.th')
     writer = get_writer(log_subfolder)
 
+    # Checkpoint-related stuff
+    chkpt_struct = {
+        "dataset": {
+            "name": args.dataset,
+            "test_set_as_valid": args.use_test_set_as_valid,
+        },
+        "arch": {
+            "arch": args.arch,
+            "base_width": args.base_width,
+        },
+        "train_params": {
+            "lr": args.lr,
+            "momentum": args.momentum,
+            "wd": args.weight_decay,
+            "lr_decay": args.lr_decay,
+            "bs": args.batch_size,
+        },
+    }
+    if args.use_lr_warmup:
+        chkpt_struct['train_params']['warmup'] = {'num_epochs': args.lr_warmup_num_epochs}
+    if args.distill:
+        chkpt_struct['train_params']['distill'] = {
+            "weight": args.distill_weight,
+            "temp": args.distill_temp,
+            "teacher_path": args.teacher_path,
+            "teacher_path_rel": os.path.relpath(args.teacher_path, log_subfolder),
+            "teacher_path_abs": os.path.abspath(args.teacher_path)
+        }
+    args.chkpt_struct = chkpt_struct
+    # Remaining parameters:
+    # - state_dict: to be completed each time,
+    # - epoch: same
+    # - prec1: same
+    # - best_prec1: comleted each time we have an overall best model
+    # -best_prec1_last20: completed each time we have a 20-epoch best model.
+
     # TODO: add hparams to TensorBoard
 
     train(train_loader, val_loader, model, criterion, optimizer, main_lr_scheduler, writer)
@@ -143,6 +179,7 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
 
     best_prec1 = 0
     best_last20_prec1 = 0
+    chkpt_struct = args('chkpt_struct')
 
     for epoch in range(0, args('epochs')):
 
@@ -159,10 +196,12 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
         best_prec1 = max(prec1, best_prec1)
 
         if is_best:
-            torch.save({
+            torch.save(dict({
                 'state_dict': model.state_dict(),
+                'prec1': prec1,
                 'best_prec1': best_prec1,
-            }, _checkpoint_filename_fmt.format(""))
+                'epoch': epoch,
+            }, **chkpt_struct), _checkpoint_filename_fmt.format(""))
 
         if epoch % 20 == 0: # Reset, don't need to save it: the next one should _at least_ happen once, hopefully
             best_last20_prec1 = 0
@@ -170,11 +209,12 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
         if args('save20') and prec1 > best_last20_prec1:
             best_last20_prec1 = prec1
             epoch_rounded = ((epoch // 20)+1) * 20
-            torch.save({
+            torch.save(dict({
                 'state_dict': model.state_dict(),
+                'prec1': prec1,
                 'best_prec1_last20': best_last20_prec1,
                 'epoch': epoch,
-            }, _checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
+            }, **chkpt_struct), _checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
 
 
 def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
