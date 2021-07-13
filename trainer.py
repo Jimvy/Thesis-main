@@ -51,7 +51,7 @@ def get_trainer_parser():
                         metavar='N', help='print frequency (per epoch)')
     parser.add_argument('--log-freq', '--lf', default=4, type=int, metavar='N',
                         help="TensorBoard log frequency during training (per epoch)")
-    parser.add_argument('--save20', default=False, type=bool,
+    parser.add_argument('--save20', action='store_true', default=False,
                         help='Save the best model of every 20 epochs')
 
     parser.add_argument('--log-dir', '--ld', default='runs', type=str,
