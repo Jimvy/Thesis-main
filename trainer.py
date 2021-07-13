@@ -99,6 +99,8 @@ def main():
     teacher = None
     if args.distill:
         teacher = load_teacher_from_checkpoint_or_args(args, num_classes=num_classes)
+        teacher.eval()  # IMPORTANT: freeze the teacher in evaluation mode so that it doesn't accidentally train.
+        # (Because PyTorch actually continues training the batch norm parameters "running_mean" and "running_var"...)
         print("Loaded teacher", file=sys.stderr)
         criterion.add_criterion(HKDCriterion(teacher, args.distill_temp), "HKD", weight=args.distill_weight)
 
@@ -197,25 +199,29 @@ def train(train_loader, val_loader, model, criterion, optimizer, lr_scheduler, w
         prec1 = float(f"{prec1:.2f}")
 
         if is_best:
-            torch.save(dict({
+            chkpt = {
                 'state_dict': model.state_dict(),
                 'prec1': prec1,
                 'best_prec1': float(f"{best_prec1:.2f}"),
                 'epoch': epoch,
-            }, **chkpt_struct), _checkpoint_filename_fmt.format(""))
+            }
+            chkpt.update(chkpt_struct)
+            torch.save(chkpt, _checkpoint_filename_fmt.format(""))
 
-        if epoch % 20 == 0: # Reset, don't need to save it: the next one should _at least_ happen once, hopefully
+        if epoch % 20 == 0:  # Reset, don't need to save it: the next one should _at least_ happen once, hopefully
             best_last20_prec1 = 0
         # remember best prec@1 of the last 20 epochs, and save it
         if args('save20') and prec1 > best_last20_prec1:
             best_last20_prec1 = prec1
             epoch_rounded = ((epoch // 20)+1) * 20
-            torch.save(dict({
+            chkpt = {
                 'state_dict': model.state_dict(),
                 'prec1': prec1,
                 'best_prec1_last20': float(f"{best_last20_prec1:.2f}"),
                 'epoch': epoch,
-            }, **chkpt_struct), _checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
+            }
+            chkpt.update(chkpt_struct)
+            torch.save(chkpt, _checkpoint_filename_fmt.format(f"_epoch{epoch_rounded}"))
 
 
 def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):

@@ -4,12 +4,12 @@ from datetime import datetime
 
 _FOLDER_IGNORED_ARGS_TRAIN = [
     'arch', 'workers', 'log_freq', 'print_freq', 'momentum',
-    'epochs', 'teacher_path', 'log_dir'
+    'epochs', 'teacher_path', 'log_dir', 'save20',
 ]
 _FOLDER_INCLUDED_ARGS = [('bs', 'batch_size'), ('lr', 'lr'), ('lr_dec', 'lr_decay'), ('wd', 'weight_decay')]
 _FOLDER_IGNORED_ARGS_TEST = [
     'batch_size', 'arch', 'workers', 'log_freq', 'print_freq', 'momentum',
-    'epochs', 'teacher_path', 'log_dir'
+    'epochs', 'teacher_path', 'log_dir', 'save20',
 ]
 
 
