@@ -228,9 +228,13 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
     """
         Run one train epoch
     """
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
-    losses = AverageMeter()
+    batch_time_meter = AverageMeter()
+    data_time_meter = AverageMeter()
+    model_time_meter = AverageMeter()
+    losscomp_time_meter = AverageMeter()
+    backward_time_meter = AverageMeter()
+    update_time_meter = AverageMeter()
+    loss_meter = AverageMeter()
     losses_components = {}
     for loss_name in criterion.criterion_names:
         losses_components[loss_name] = AverageMeter()
@@ -238,65 +242,77 @@ def train_one_epoch(train_loader, model, criterion, optimizer, epoch, writer):
 
     # switch to train mode
     model.train()
+    N = len(train_loader)
 
-    print_period = (len(train_loader) // args('print_freq')) + 1
-    log_period = (len(train_loader) // args('log_freq')) + 1
+    print_period = (N // args('print_freq')) + 1
+    log_period = (N // args('log_freq')) + 1
 
     end = time.time()
     for i, (inputs, targets) in enumerate(train_loader):
 
         # measure data loading time
-        data_time.update(time.time() - end)
+        t0 = time.time()
+        data_time_meter.update(t0 - end)
 
         input_var = inputs.cuda()
         targets = targets.cuda()
 
         # compute output
+        t1 = time.time()
         outputs = model(input_var)
+        t2 = time.time()
         loss = criterion(input_var, outputs, targets)
         loss_map = criterion.prev_ret_map
+        t3 = time.time()
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
         loss.backward()
+        t4 = time.time()
         optimizer.step()
+        t5 = time.time()
 
         outputs = outputs.float()
         loss = loss.float()
         # measure accuracy and record loss
         prec1 = accuracy(outputs.data, targets)[0]
-        losses.update(loss.item(), inputs.size(0))
+        loss_meter.update(loss.item(), inputs.size(0))
         for loss_name, loss_val in loss_map.items():
             losses_components[loss_name].update(loss_val)
         top1.update(prec1.item(), inputs.size(0))
 
         # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
+        batch_time_meter.update(time.time() - end)
+        model_time_meter.update(t2 - t1)
+        losscomp_time_meter.update(t3 - t2)
+        backward_time_meter.update(t4 - t3)
+        update_time_meter.update(t5 - t4)
 
         if i % print_period == print_period-1:
-            print('Epoch: [{0}][{1}/{2}]\t'
-                  'Time {batch_time.val:.3f}\t'
-                  'DL {data_time.val:.3f}\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-                      epoch, i, len(train_loader), batch_time=batch_time,
-                      data_time=data_time, loss=losses, top1=top1))
+            print(f'Epoch: [{epoch}][{i}/{N}] \t'
+                  f'Time {batch_time_meter.val:.3f} \t'
+                  f'DL {data_time_meter.val:.3f} \t'
+                  f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f}) \t'
+                  f'Prec@1 {top1.val:.2f} ({top1.avg:.2f})')
         if i % log_period == log_period-1:
             writer.add_scalar("Prec1/train", top1.avg, epoch + i/len(train_loader))
-            writer.add_scalar("Loss/train", losses.avg, epoch + i/len(train_loader))
+            writer.add_scalar("Loss/train", loss_meter.avg, epoch + i/len(train_loader))
             for loss_name, loss_meter in losses_components.items():
                 writer.add_scalar("Loss/train/{}".format(loss_name), loss_meter.avg, epoch + i/len(train_loader))
 
-    print('Epoch: [{0}][done/{1}]\t'
-          'Time {batch_time.val:.3f}\t'
-          'DL {data_time.val:.3f}\t'
-          'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-          'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
-              epoch, len(train_loader), batch_time=batch_time,
-              data_time=data_time, loss=losses, top1=top1))
+        end = time.time()
+
+    print(f'Epoch: [{epoch}][done/{N}] \t'
+          f'Time {batch_time_meter.avg:.3f} \t'
+          f'dl {1000*data_time_meter.avg:.1f},'
+          f'md {1000*model_time_meter.avg:.1f},'
+          f'lo {1000*losscomp_time_meter.avg:.1f},'
+          f'bk {1000*backward_time_meter.avg:.1f},'
+          f'up {1000*update_time_meter.avg:.1f} \t'
+          f'Loss {loss_meter.val:.4f} ({loss_meter.avg:.4f}) \t'
+          f'Prec@1 {top1.val:.2f} ({top1.avg:.2f})')
     writer.add_scalar("Prec1/train", top1.avg, epoch+1)
-    writer.add_scalar("Loss/train", losses.avg, epoch+1)
+    writer.add_scalar("Loss/train", loss_meter.avg, epoch+1)
     for loss_name, loss_meter in losses_components.items():
         writer.add_scalar("Loss/train/{}".format(loss_name), loss_meter.avg, epoch+1)
 
