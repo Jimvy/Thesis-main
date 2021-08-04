@@ -105,7 +105,8 @@ def main():
         log_subfolder = os.path.join(args.log_dir, get_folder_name(args, model, teacher, evaluate_mode=True))
     else:
         log_subfolder = os.path.dirname(model_chkpt_path)
-    print(f"Logging into folder {log_subfolder}", file=sys.stderr)
+    if args.eval_distrib:
+        print(f"Logging into folder {log_subfolder}", file=sys.stderr)
 
     validate(val_loader, model, criterion, epoch, evaluate_output_distrib=False)
 
