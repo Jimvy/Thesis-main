@@ -107,14 +107,14 @@ def main():
         log_subfolder = os.path.dirname(model_chkpt_path)
     print(f"Logging into folder {log_subfolder}", file=sys.stderr)
 
-    print(validate(val_loader, model, criterion, epoch, evaluate_output_distrib=False))
+    validate(val_loader, model, criterion, epoch, evaluate_output_distrib=False)
 
     if args.eval_distrib:  # TODO if other kinds of evaluation, add them here
         writer = get_writer(log_subfolder)
 
         # TODO: add hparams to TensorBoard
 
-        evaluate(val_loader, model, writer, epoch)
+        evaluate(val_loader, model, writer, epoch, double=True)
 
         # TODO: add precision-recall curve
         if hasattr(writer, "flush"):
@@ -122,7 +122,7 @@ def main():
         writer.close()
 
 
-def evaluate(val_loader, model, writer, epoch):
+def evaluate(val_loader, model, writer, epoch, double=False):
     model.eval()
     with torch.no_grad():
         stats_lists = {
@@ -169,6 +169,8 @@ def evaluate(val_loader, model, writer, epoch):
             stats_lists['softmax/predicted_wrong'].append(sftm_idxpp_incorrect)
         for tag, l in stats_lists.items():
             writer.add_histogram(tag, torch.cat(l), epoch)
+            if double:
+                writer.add_histogram(tag, torch.cat(l), epoch+1)
 
 
 def validate(val_loader, model, criterion, epoch, writer=None, evaluate_output_distrib=False):
