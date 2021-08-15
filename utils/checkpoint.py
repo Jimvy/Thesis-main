@@ -89,7 +89,10 @@ def load_dataset_args_from_checkpoint_or_args(chkpt, args):
                   f"VS {chkpt['dataset']['name']} (checkpoint)", file=sys.stderr)
             sys.exit(-2)
         dataset_name = chkpt['dataset']['name']
-        use_test_set_as_valid = chkpt['dataset']['test_set_as_valid']
+        if args.use_test_set_as_valid is None:
+            use_test_set_as_valid = chkpt['dataset']['test_set_as_valid']
+        else:
+            use_test_set_as_valid = args.use_test_set_as_valid
     else:
         dataset_name = args_dataset
         use_test_set_as_valid = args_use_test_set

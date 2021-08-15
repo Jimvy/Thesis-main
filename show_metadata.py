@@ -29,7 +29,7 @@ def show_checkpoint(model_chkpt_path, indent_level=0):
     def print(s, **kwargs):
         print_bak(('\t'*indent_level) + s, **kwargs)
     if not os.path.isfile(model_chkpt_path):
-        print(f"No checkpoint found at '{args.chkpt}'", file=sys.stderr)
+        print(f"No checkpoint found at '{model_chkpt_path}'", file=sys.stderr)
         return False
     print(f"Loading checkpoint '{model_chkpt_path}'", file=sys.stderr)
     chkpt = torch.load(model_chkpt_path)
